@@ -43,19 +43,30 @@ def get(url):
     return None
 
 
-def listar_competiciones():
-    html = get(LIST_URL)
-    if not html:
-        sys.exit("No se pudo descargar el listado de competiciones")
+def listar_competiciones(debug=False):
+    try:
+        r = S.get(LIST_URL, timeout=30)
+    except requests.RequestException as e:
+        sys.exit(f"No se pudo descargar el listado: {e}")
+    html = r.text
     soup = BeautifulSoup(html, "lxml")
+    titulo = soup.title.get_text(strip=True) if soup.title else "(sin título)"
+    print(f"Listado: HTTP {r.status_code}, {len(html)} caracteres, título: {titulo!r}, "
+          f"apariciones de 'toId': {html.count('toId')}")
+    Path("debug").mkdir(exist_ok=True)
+    Path("debug/listado.html").write_text(html, encoding="utf-8")
     comps = {}
-    for a in soup.select('a[href*="Details.php?toId="]'):
-        tid = re.search(r"toId=(\d+)", a["href"]).group(1)
-        fila = a.find_parent("tr")
-        texto = " ".join((fila or a).stripped_strings)
-        comps[tid] = {"toId": tid, "fila": texto}
+    for tr in soup.find_all("tr"):
+        if tr.find("tr"):
+            continue
+        m = re.search(r"toId=(\d+)", str(tr))  # busca en href, onclick, data-*...
+        if m:
+            comps[m.group(1)] = {"toId": m.group(1), "fila": " ".join(tr.stripped_strings)}
     if not comps:
-        sys.exit("El listado no contiene competiciones: ¿ha cambiado el HTML de Ianseo?")
+        print("No se encontraron competiciones. Primeros 500 caracteres:\n" + html[:500], file=sys.stderr)
+        if not debug:
+            sys.exit("El listado no contiene competiciones: ¿bloqueo o HTML distinto? Mira debug/listado.html")
+    time.sleep(PAUSE)
     return comps
 
 
@@ -147,7 +158,7 @@ def main():
     args = ap.parse_args()
     DATA.mkdir(exist_ok=True)
 
-    comps = listar_competiciones()
+    comps = listar_competiciones(bool(args.debug))
     if args.debug:
         comps = {args.debug: comps.get(args.debug, {"toId": args.debug, "fila": ""})}
     state = json.loads(STATE.read_text()) if STATE.exists() else {}
