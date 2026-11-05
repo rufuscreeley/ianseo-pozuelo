@@ -1,0 +1,25 @@
+name: Depurar Ianseo
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  depurar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Descargar HTML de ejemplo
+        run: |
+          python scraper.py --debug 28562 || true
+          python scraper.py --debug 30657 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debug-html
+          path: debug/
