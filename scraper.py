@@ -173,6 +173,10 @@ def main():
         if filas is not None:
             resultados = [r for r in resultados if r["toId"] != tid] + filas
             print(f"[{i}/{len(comps)}] {tid}: {len(filas)} filas del club")
+        if args.debug and filas:
+            for f in filas:
+                print(f"  [{f['codigo_pagina']}] {f['celdas']}" + (f"  ||  {f['contexto']}" if f["contexto"] else ""))
+            escribir_csv(Path("debug") / f"filas_{tid}.csv", filas, RES_COLS)
         if not args.debug:
             state[tid] = huella
 
