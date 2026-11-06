@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arqueros de Pozuelo · Resultados 2026</title>
+<meta name="description" content="Resultados de los deportistas del club Arqueros de Pozuelo en las competiciones de tiro con arco de 2026.">
+<style>
+  :root {
+    --bg: #f6f7f5; --card: #ffffff; --fg: #1d2420; --muted: #66706a; --border: #dfe4df;
+    --accent: #0b6e4f; --accent-soft: #e3f2ec; --row-alt: #fafbfa; --warn: #8a5a00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121614; --card: #1a201d; --fg: #e8ede9; --muted: #98a39c; --border: #2c3631;
+      --accent: #4cc39a; --accent-soft: #1f3a30; --row-alt: #1d2420; --warn: #e0b04c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+  header.hero { background: var(--accent); color: #fff; padding: 32px 0 28px; }
+  @media (prefers-color-scheme: dark) { header.hero { color: #0d1511; } }
+  header.hero h1 { margin: 0 0 4px; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -.01em; }
+  header.hero p { margin: 0; opacity: .92; }
+  .stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin: -22px 0 20px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+          box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .stat .n { font-size: 1.7rem; font-weight: 700; line-height: 1.15; }
+  .stat .l { color: var(--muted); font-size: .86rem; }
+  .tabs { display: flex; gap: 8px; margin: 8px 0 12px; }
+  .tab { border: 1px solid var(--border); background: var(--card); color: var(--fg); padding: 8px 16px;
+         border-radius: 999px; font: inherit; cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .tab[aria-selected="true"] { color: #0d1511; } }
+  .filters { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 12px; }
+  .filters label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: 2px; }
+  .filters input, .filters select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+                                    background: var(--card); color: var(--fg); font: inherit; }
+  .filters .reset { align-self: end; }
+  button.reset { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: transparent;
+                 color: var(--fg); font: inherit; cursor: pointer; }
+  .table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--card); font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: var(--accent); }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.muted { color: var(--muted); }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .75rem; background: var(--accent-soft); color: var(--accent); }
+  .count { color: var(--muted); font-size: .86rem; margin: 8px 2px 0; }
+  .msg { padding: 28px 16px; text-align: center; color: var(--muted); }
+  .error { color: var(--warn); }
+  footer { color: var(--muted); font-size: .82rem; padding: 24px 0 40px; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <h1>Arqueros de Pozuelo</h1>
+    <p>Resultados de competiciones de tiro con arco · 2026</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="stats" id="stats" aria-label="Resumen"></section>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-individual" aria-selected="true" data-tab="individual">Individual</button>
+    <button class="tab" role="tab" id="tab-equipos" aria-selected="false" data-tab="equipos">Equipos</button>
+  </div>
+
+  <section class="filters" aria-label="Filtros">
+    <div><label for="f-q">Buscar</label><input id="f-q" type="search" placeholder="Atleta, equipo..."></div>
+    <div id="box-ambito"><label for="f-ambito">Ámbito</label><select id="f-ambito"></select></div>
+    <div><label for="f-comp">Competición</label><select id="f-comp"></select></div>
+    <div><label for="f-div">División</label><select id="f-div"></select></div>
+    <div><label for="f-cat">Categoría</label><select id="f-cat"></select></div>
+    <div class="reset"><button class="reset" id="f-reset" type="button">Limpiar filtros</button></div>
+  </section>
+
+  <div class="table-wrap"><table id="tabla"><thead></thead><tbody></tbody></table></div>
+  <p class="count" id="count"></p>
+</main>
+
+<footer>
+  <div class="wrap">
+    Datos obtenidos de <a href="https://www.ianseo.net" target="_blank" rel="noopener">Ianseo</a>.
+    <span id="actualizado"></span> Se actualizan automáticamente los días 1 y 15 de cada mes.
+  </div>
+</footer>
+
+<script>
+"use strict";
+const COLS = {
+  individual: [
+    { k: "competicion", t: "Competición" }, { k: "ambito", t: "Ámbito" },
+    { k: "division", t: "División" }, { k: "categoria", t: "Categoría" },
+    { k: "posicion_final", t: "Pos.", num: true }, { k: "atleta", t: "Atleta" },
+    { k: "puntos_totales", t: "Puntos", num: true }, { k: "dieces", t: "10", num: true }, { k: "nueves", t: "9", num: true }
+  ],
+  equipos: [
+    { k: "competicion", t: "Competición" }, { k: "division", t: "División" }, { k: "categoria", t: "Categoría" },
+    { k: "posicion_final", t: "Pos.", num: true }, { k: "equipo", t: "Equipo" }, { k: "miembros", t: "Componentes" }
+  ]
+};
+const MEDALLAS = ["🥇", "🥈", "🥉"];
+const DATA = { individual: [], equipos: [] };
+const state = { tab: "individual", sortKey: null, sortDir: 1, f: { q: "", ambito: "", comp: "", div: "", cat: "" } };
+const $ = id => document.getElementById(id);
+
+/* CSV con comillas, comas y saltos de línea dentro de campos */
+function parseCSV(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); cell = ""; rows.push(row); row = []; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  if (!rows.length) return [];
+  const head = rows.shift().map(h => h.replace(/^\uFEFF/, "").trim());
+  return rows.filter(r => r.length > 1 || r[0]).map(r => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ""])));
+}
+const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const numero = v => { const n = parseFloat(v); return isNaN(n) ? Infinity : n; };
+const cmp = (a, b) => (a === b ? 0 : a < b ? -1 : 1);
+const texto = (a, b) => (a || "").localeCompare(b || "", "es");
+
+function ordenPorDefecto(a, b) {
+  return cmp(+b.toId, +a.toId) || texto(a.division, b.division) || texto(a.categoria, b.categoria) ||
+         cmp(numero(a.posicion_final), numero(b.posicion_final));
+}
+function ordenar(rows) {
+  const col = COLS[state.tab].find(c => c.k === state.sortKey);
+  if (!col) return rows.slice().sort(ordenPorDefecto);
+  return rows.slice().sort((a, b) =>
+    (col.num ? cmp(numero(a[col.k]), numero(b[col.k])) : texto(a[col.k], b[col.k])) * state.sortDir || ordenPorDefecto(a, b));
+}
+function filtrar(rows) {
+  const f = state.f, q = norm(f.q);
+  const campos = state.tab === "individual" ? ["atleta", "club"] : ["equipo", "miembros"];
+  return rows.filter(r =>
+    (!f.ambito || r.ambito === f.ambito) && (!f.comp || r.toId === f.comp) &&
+    (!f.div || r.division === f.div) && (!f.cat || r.categoria === f.cat) &&
+    (!q || campos.some(k => norm(r[k]).includes(q))));
+}
+
+function opciones(sel, valores, etiqueta) {
+  const actual = sel.value;
+  sel.replaceChildren(new Option("Todas", ""));
+  valores.forEach(([v, t]) => sel.add(new Option(t, v)));
+  sel.value = valores.some(([v]) => v === actual) ? actual : "";
+  void etiqueta;
+}
+function reconstruirFiltros() {
+  const rows = DATA[state.tab];
+  const unicos = (fn) => [...new Map(rows.map(r => [fn(r)[0], fn(r)])).values()].filter(([v]) => v);
+  const comps = unicos(r => [r.toId, r.competicion]).sort((a, b) => cmp(+b[0], +a[0]));
+  opciones($("f-comp"), comps);
+  opciones($("f-div"), unicos(r => [r.division, r.division]).sort((a, b) => texto(a[1], b[1])));
+  opciones($("f-cat"), unicos(r => [r.categoria, r.categoria]).sort((a, b) => texto(a[1], b[1])));
+  opciones($("f-ambito"), unicos(r => [r.ambito || "", r.ambito || ""]));
+  $("box-ambito").hidden = state.tab !== "individual";
+  state.f.comp = $("f-comp").value; state.f.div = $("f-div").value; state.f.cat = $("f-cat").value;
+  state.f.ambito = $("f-ambito").value;
+}
+
+function celda(tr, col, r) {
+  const td = tr.insertCell();
+  const v = r[col.k] || "";
+  if (col.num) td.className = "num";
+  if (col.k === "posicion_final") {
+    const n = parseInt(v, 10);
+    td.textContent = (n >= 1 && n <= 3 ? MEDALLAS[n - 1] + " " : "") + v;
+  } else if (col.k === "ambito") {
+    const s = document.createElement("span"); s.className = "chip"; s.textContent = v; td.appendChild(s);
+  } else if (!v) { td.textContent = "—"; td.classList.add("muted"); }
+  else td.textContent = v;
+}
+function pintarTabla() {
+  const cols = COLS[state.tab];
+  const thead = $("tabla").tHead; thead.replaceChildren();
+  const hr = thead.insertRow();
+  cols.forEach(c => {
+    const th = document.createElement("th");
+    th.textContent = c.t + (state.sortKey === c.k ? (state.sortDir === 1 ? " ▲" : " ▼") : "");
+    if (c.num) th.className = "num";
+    th.setAttribute("aria-sort", state.sortKey === c.k ? (state.sortDir === 1 ? "ascending" : "descending") : "none");
+    th.addEventListener("click", () => {
+      if (state.sortKey === c.k) state.sortDir *= -1; else { state.sortKey = c.k; state.sortDir = 1; }
+      pintarTabla();
+    });
+    hr.appendChild(th);
+  });
+  const rows = ordenar(filtrar(DATA[state.tab]));
+  const tbody = $("tabla").tBodies[0]; tbody.replaceChildren();
+  rows.forEach(r => { const tr = tbody.insertRow(); cols.forEach(c => celda(tr, c, r)); });
+  if (!rows.length) {
+    const td = tbody.insertRow().insertCell(); td.colSpan = cols.length; td.className = "msg";
+    td.textContent = "No hay resultados con estos filtros.";
+  }
+  $("count").textContent = rows.length + (rows.length === 1 ? " resultado" : " resultados");
+}
+
+function pintarResumen() {
+  const ind = DATA.individual, eq = DATA.equipos;
+  const todas = new Set([...ind, ...eq].map(r => r.toId));
+  const medallas = rows => [1, 2, 3].map(p => rows.filter(r => parseInt(r.posicion_final, 10) === p).length);
+  const [o, p, b] = medallas(ind), [eo, ep, eb] = medallas(eq);
+  const tarjetas = [
+    [todas.size, "competiciones con participación"],
+    [ind.length, "participaciones individuales"],
+    [`🥇 ${o} · 🥈 ${p} · 🥉 ${b}`, "medallas individuales"],
+    [`🥇 ${eo} · 🥈 ${ep} · 🥉 ${eb}`, "medallas por equipos"]
+  ];
+  $("stats").replaceChildren(...tarjetas.map(([n, l]) => {
+    const d = document.createElement("div"); d.className = "stat";
+    const a = document.createElement("div"); a.className = "n"; a.textContent = n;
+    const b2 = document.createElement("div"); b2.className = "l"; b2.textContent = l;
+    d.append(a, b2); return d;
+  }));
+}
+
+function cambiarPestana(tab) {
+  state.tab = tab; state.sortKey = null; state.sortDir = 1;
+  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  reconstruirFiltros(); pintarTabla();
+}
+
+async function cargar(url) {
+  try {
+    const r = await fetch(url, { cache: "no-store" });
+    return r.ok ? parseCSV(await r.text()) : null;
+  } catch (e) { return null; }
+}
+async function iniciar() {
+  const [nac, reg] = await Promise.all([cargar("data/resultados_nacionales.csv"), cargar("data/resultados_regionales.csv")]);
+  if (nac === null && reg === null) {
+    const td = $("tabla").tBodies[0].insertRow().insertCell();
+    td.className = "msg error"; td.textContent = "No se han podido cargar los datos. Inténtalo de nuevo más tarde.";
+    return;
+  }
+  (nac || []).forEach(r => r.ambito = "Nacional");
+  (reg || []).forEach(r => r.ambito = "Regional");
+  const todas = [...(nac || []), ...(reg || [])];
+  DATA.individual = todas.filter(r => r.tipo === "Individual");
+  DATA.equipos = todas.filter(r => r.tipo === "Equipos");
+  pintarResumen(); reconstruirFiltros(); pintarTabla();
+
+  try {
+    const m = await (await fetch("data/meta.json", { cache: "no-store" })).json();
+    const f = new Date(m.actualizado + "T00:00:00");
+    if (!isNaN(f)) $("actualizado").textContent = "Última actualización: " +
+      f.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" }) + ".";
+  } catch (e) { /* sin fecha */ }
+}
+
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => cambiarPestana(b.dataset.tab)));
+[["f-q", "q"], ["f-ambito", "ambito"], ["f-comp", "comp"], ["f-div", "div"], ["f-cat", "cat"]].forEach(([id, k]) =>
+  $(id).addEventListener(id === "f-q" ? "input" : "change", e => { state.f[k] = e.target.value; pintarTabla(); }));
+$("f-reset").addEventListener("click", () => {
+  $("f-q").value = ""; state.f.q = "";
+  ["f-ambito", "f-comp", "f-div", "f-cat"].forEach(id => { $(id).value = ""; });
+  Object.assign(state.f, { ambito: "", comp: "", div: "", cat: "" }); pintarTabla();
+});
+iniciar();
+</script>
+</body>
+</html>
