@@ -1,14 +1,14 @@
 name: Actualizar resultados Ianseo
 on:
   schedule:
-    - cron: "0 5 2 * *"   # día 2 de cada mes, 05:00 UTC
-  workflow_dispatch:       # también se puede lanzar a mano
+    - cron: "0 5 1,15 * *"   # días 1 y 15 de cada mes, 05:00 UTC
+  workflow_dispatch:          # también se puede lanzar a mano
 permissions:
   contents: write
 jobs:
   actualizar:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -19,7 +19,9 @@ jobs:
       - run: python scraper.py
       - name: Guardar cambios
         run: |
+          # la fecha se guarda siempre: la web la muestra y el repositorio no queda inactivo
+          echo "{\"actualizado\": \"$(date -u +%Y-%m-%d)\"}" > data/meta.json
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
           git add data/
-          git diff --cached --quiet || (git commit -m "Actualización mensual de datos" && git push)
+          git diff --cached --quiet || (git commit -m "Actualización de datos" && git push)
