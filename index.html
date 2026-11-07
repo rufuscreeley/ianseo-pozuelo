@@ -49,6 +49,7 @@
   tbody tr:nth-child(even) { background: var(--row-alt); }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   td.muted { color: var(--muted); }
+  td .sub { color: var(--muted); font-size: .8rem; margin-top: 2px; }
   .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .75rem; background: var(--accent-soft); color: var(--accent); }
   .count { color: var(--muted); font-size: .86rem; margin: 8px 2px 0; }
   .msg { padding: 28px 16px; text-align: center; color: var(--muted); }
@@ -75,10 +76,12 @@
 
   <section class="filters" aria-label="Filtros">
     <div><label for="f-q">Buscar</label><input id="f-q" type="search" placeholder="Atleta, equipo..."></div>
+    <div><label for="f-anio">Año</label><select id="f-anio"></select></div>
     <div id="box-ambito"><label for="f-ambito">Ámbito</label><select id="f-ambito"></select></div>
     <div><label for="f-comp">Competición</label><select id="f-comp"></select></div>
     <div><label for="f-div">División</label><select id="f-div"></select></div>
     <div><label for="f-cat">Categoría</label><select id="f-cat"></select></div>
+    <div><label for="f-gen">Género</label><select id="f-gen"></select></div>
     <div class="reset"><button class="reset" id="f-reset" type="button">Limpiar filtros</button></div>
   </section>
 
@@ -89,7 +92,7 @@
 <footer>
   <div class="wrap">
     Datos obtenidos de <a href="https://www.ianseo.net" target="_blank" rel="noopener">Ianseo</a>.
-    <span id="actualizado"></span> Se actualizan automáticamente los días 1 y 15 de cada mes.
+    <span id="actualizado"></span> En las competiciones nacionales, los puntos son los de la ronda de clasificación. Se actualizan automáticamente los días 1 y 15 de cada mes.
   </div>
 </footer>
 
@@ -97,19 +100,19 @@
 "use strict";
 const COLS = {
   individual: [
-    { k: "competicion", t: "Competición" }, { k: "ambito", t: "Ámbito" },
+    { k: "competicion", t: "Competición", sortK: "fecha_inicio" }, { k: "ambito", t: "Ámbito" },
     { k: "division", t: "División" }, { k: "categoria", t: "Categoría" },
     { k: "posicion_final", t: "Pos.", num: true }, { k: "atleta", t: "Atleta" },
-    { k: "puntos_totales", t: "Puntos", num: true }, { k: "dieces", t: "10", num: true }, { k: "nueves", t: "9", num: true }
+    { k: "puntos", t: "Puntos", num: true }
   ],
   equipos: [
-    { k: "competicion", t: "Competición" }, { k: "division", t: "División" }, { k: "categoria", t: "Categoría" },
-    { k: "posicion_final", t: "Pos.", num: true }, { k: "equipo", t: "Equipo" }, { k: "miembros", t: "Componentes" }
+    { k: "competicion", t: "Competición", sortK: "fecha_inicio" }, { k: "division", t: "División" }, { k: "categoria", t: "Categoría" },
+    { k: "posicion_final", t: "Pos.", num: true }, { k: "equipo", t: "Equipo" }, { k: "miembros", t: "Componentes" }, { k: "puntos", t: "Puntos", num: true }
   ]
 };
 const MEDALLAS = ["🥇", "🥈", "🥉"];
 const DATA = { individual: [], equipos: [] };
-const state = { tab: "individual", sortKey: null, sortDir: 1, f: { q: "", ambito: "", comp: "", div: "", cat: "" } };
+const state = { tab: "individual", sortKey: null, sortDir: 1, f: { q: "", anio: "", ambito: "", comp: "", div: "", cat: "", gen: "" } };
 const $ = id => document.getElementById(id);
 
 /* CSV con comillas, comas y saltos de línea dentro de campos */
@@ -129,27 +132,36 @@ function parseCSV(text) {
   const head = rows.shift().map(h => h.replace(/^\uFEFF/, "").trim());
   return rows.filter(r => r.length > 1 || r[0]).map(r => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ""])));
 }
+const MESES_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function fmtFecha(ini, fin) {
+  const p = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ""); return m ? { y: +m[1], m: +m[2] - 1, d: +m[3] } : null; };
+  const a = p(ini), b = p(fin) || a;
+  if (!a) return "";
+  if (a.y === b.y && a.m === b.m && a.d === b.d) return `${a.d} ${MESES_ES[a.m]} ${a.y}`;
+  if (a.y === b.y && a.m === b.m) return `${a.d}–${b.d} ${MESES_ES[a.m]} ${a.y}`;
+  return `${a.d} ${MESES_ES[a.m]} – ${b.d} ${MESES_ES[b.m]} ${b.y}`;
+}
 const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const numero = v => { const n = parseFloat(v); return isNaN(n) ? Infinity : n; };
 const cmp = (a, b) => (a === b ? 0 : a < b ? -1 : 1);
 const texto = (a, b) => (a || "").localeCompare(b || "", "es");
 
 function ordenPorDefecto(a, b) {
-  return cmp(+b.toId, +a.toId) || texto(a.division, b.division) || texto(a.categoria, b.categoria) ||
+  return texto(b.fecha_inicio, a.fecha_inicio) || cmp(+b.toId, +a.toId) || texto(a.division, b.division) || texto(a.categoria, b.categoria) ||
          cmp(numero(a.posicion_final), numero(b.posicion_final));
 }
 function ordenar(rows) {
   const col = COLS[state.tab].find(c => c.k === state.sortKey);
   if (!col) return rows.slice().sort(ordenPorDefecto);
   return rows.slice().sort((a, b) =>
-    (col.num ? cmp(numero(a[col.k]), numero(b[col.k])) : texto(a[col.k], b[col.k])) * state.sortDir || ordenPorDefecto(a, b));
+    (col.num ? cmp(numero(a[col.k]), numero(b[col.k])) : texto(a[col.sortK || col.k], b[col.sortK || col.k])) * state.sortDir || ordenPorDefecto(a, b));
 }
 function filtrar(rows) {
   const f = state.f, q = norm(f.q);
   const campos = state.tab === "individual" ? ["atleta", "club"] : ["equipo", "miembros"];
   return rows.filter(r =>
-    (!f.ambito || r.ambito === f.ambito) && (!f.comp || r.toId === f.comp) &&
-    (!f.div || r.division === f.div) && (!f.cat || r.categoria === f.cat) &&
+    (!f.anio || (r.fecha_inicio || "").slice(0, 4) === f.anio) && (!f.ambito || r.ambito === f.ambito) && (!f.comp || r.toId === f.comp) &&
+    (!f.div || r.division === f.div) && (!f.cat || r.categoria === f.cat) && (!f.gen || r.genero === f.gen) &&
     (!q || campos.some(k => norm(r[k]).includes(q))));
 }
 
@@ -163,23 +175,32 @@ function opciones(sel, valores, etiqueta) {
 function reconstruirFiltros() {
   const rows = DATA[state.tab];
   const unicos = (fn) => [...new Map(rows.map(r => [fn(r)[0], fn(r)])).values()].filter(([v]) => v);
-  const comps = unicos(r => [r.toId, r.competicion]).sort((a, b) => cmp(+b[0], +a[0]));
+  const fechas = new Map(rows.map(r => [r.toId, r.fecha_inicio || ""]));
+  const comps = unicos(r => [r.toId, r.competicion + (r.fecha_inicio ? " · " + fmtFecha(r.fecha_inicio, r.fecha_fin) : "")])
+    .sort((a, b) => texto(fechas.get(b[0]), fechas.get(a[0])) || cmp(+b[0], +a[0]));
   opciones($("f-comp"), comps);
   opciones($("f-div"), unicos(r => [r.division, r.division]).sort((a, b) => texto(a[1], b[1])));
   opciones($("f-cat"), unicos(r => [r.categoria, r.categoria]).sort((a, b) => texto(a[1], b[1])));
+  opciones($("f-anio"), unicos(r => [(r.fecha_inicio || "").slice(0, 4), (r.fecha_inicio || "").slice(0, 4)]).sort((a, b) => cmp(b[0], a[0])));
+  opciones($("f-gen"), unicos(r => [r.genero || "", r.genero || ""]).sort((a, b) => texto(a[1], b[1])));
   opciones($("f-ambito"), unicos(r => [r.ambito || "", r.ambito || ""]));
   $("box-ambito").hidden = state.tab !== "individual";
   state.f.comp = $("f-comp").value; state.f.div = $("f-div").value; state.f.cat = $("f-cat").value;
-  state.f.ambito = $("f-ambito").value;
+  state.f.ambito = $("f-ambito").value; state.f.gen = $("f-gen").value; state.f.anio = $("f-anio").value;
 }
 
 function celda(tr, col, r) {
   const td = tr.insertCell();
   const v = r[col.k] || "";
   if (col.num) td.className = "num";
+  if (col.k === "puntos" && r.ambito === "Nacional") td.title = "Puntos de la ronda de clasificación";
   if (col.k === "posicion_final") {
     const n = parseInt(v, 10);
     td.textContent = (n >= 1 && n <= 3 ? MEDALLAS[n - 1] + " " : "") + v;
+  } else if (col.k === "competicion") {
+    const n = document.createElement("div"); n.textContent = v; td.appendChild(n);
+    const sub = [fmtFecha(r.fecha_inicio, r.fecha_fin), r.lugar].filter(Boolean).join(" · ");
+    if (sub) { const d = document.createElement("div"); d.className = "sub"; d.textContent = sub; td.appendChild(d); }
   } else if (col.k === "ambito") {
     const s = document.createElement("span"); s.className = "chip"; s.textContent = v; td.appendChild(s);
   } else if (!v) { td.textContent = "—"; td.classList.add("muted"); }
@@ -195,7 +216,7 @@ function pintarTabla() {
     if (c.num) th.className = "num";
     th.setAttribute("aria-sort", state.sortKey === c.k ? (state.sortDir === 1 ? "ascending" : "descending") : "none");
     th.addEventListener("click", () => {
-      if (state.sortKey === c.k) state.sortDir *= -1; else { state.sortKey = c.k; state.sortDir = 1; }
+      if (state.sortKey === c.k) state.sortDir *= -1; else { state.sortKey = c.k; state.sortDir = c.sortK ? -1 : 1; }
       pintarTabla();
     });
     hr.appendChild(th);
@@ -251,6 +272,7 @@ async function iniciar() {
   (nac || []).forEach(r => r.ambito = "Nacional");
   (reg || []).forEach(r => r.ambito = "Regional");
   const todas = [...(nac || []), ...(reg || [])];
+  todas.forEach(r => { r.puntos = r.puntos_totales || r.puntos_clasificacion || ""; });
   DATA.individual = todas.filter(r => r.tipo === "Individual");
   DATA.equipos = todas.filter(r => r.tipo === "Equipos");
   pintarResumen(); reconstruirFiltros(); pintarTabla();
@@ -264,12 +286,12 @@ async function iniciar() {
 }
 
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => cambiarPestana(b.dataset.tab)));
-[["f-q", "q"], ["f-ambito", "ambito"], ["f-comp", "comp"], ["f-div", "div"], ["f-cat", "cat"]].forEach(([id, k]) =>
+[["f-q", "q"], ["f-anio", "anio"], ["f-ambito", "ambito"], ["f-comp", "comp"], ["f-div", "div"], ["f-cat", "cat"], ["f-gen", "gen"]].forEach(([id, k]) =>
   $(id).addEventListener(id === "f-q" ? "input" : "change", e => { state.f[k] = e.target.value; pintarTabla(); }));
 $("f-reset").addEventListener("click", () => {
   $("f-q").value = ""; state.f.q = "";
-  ["f-ambito", "f-comp", "f-div", "f-cat"].forEach(id => { $(id).value = ""; });
-  Object.assign(state.f, { ambito: "", comp: "", div: "", cat: "" }); pintarTabla();
+  ["f-anio", "f-ambito", "f-comp", "f-div", "f-cat", "f-gen"].forEach(id => { $(id).value = ""; });
+  Object.assign(state.f, { anio: "", ambito: "", comp: "", div: "", cat: "", gen: "" }); pintarTabla();
 });
 iniciar();
 </script>
