@@ -200,16 +200,30 @@ def iso_fechas(fecha, anio=ANIO):
 
 
 def fila_competicion(tid, tr, anio=ANIO):
-    """Una fila del listado: Competition | Organizer | Location | Date | Updated."""
+    """Una fila del listado: [iconos] código/nombre | organizador | lugar | fecha | actualizado.
+    Se localizan las columnas desde la derecha (fecha seguida de 'actualizado'), porque en algunos años la fila
+    lleva celdas vacías delante y el número de celdas no es siempre el mismo."""
     celdas = tr.find_all("td", recursive=False)
+    textos = [partes_celda(td) for td in celdas]
     c = {"toId": tid, "codigo": "", "competicion": "", "organizador": "", "lugar": "", "fecha": "", "actualizado": ""}
-    if len(celdas) >= 5:
-        comp = partes_celda(celdas[0])
+    k = next((i for i in range(2, len(textos) - 1)
+              if re.fullmatch(RE_FECHA, " ".join(textos[i])) and re.fullmatch(RE_ACT, " ".join(textos[i + 1]))), None)
+    if k is not None:
+        c["fecha"], c["actualizado"] = " ".join(textos[k]), " ".join(textos[k + 1])
+        c["lugar"] = " ".join(textos[k - 1])
+        c["organizador"] = " / ".join(textos[k - 2])
+        izq = []
+        for cell in textos[: k - 2]:  # código y nombre (el nombre se repite para la vista móvil)
+            izq += [t for t in cell if t not in izq]
+        if izq:
+            c["codigo"], c["competicion"] = izq[0], " ".join(izq[1:])
+    elif len(celdas) >= 5:
+        comp = textos[0]
         c["codigo"], c["competicion"] = (comp[0], " ".join(comp[1:])) if comp else ("", "")
-        c["organizador"] = " / ".join(partes_celda(celdas[1]))
-        c["lugar"] = " ".join(partes_celda(celdas[2]))
-        c["fecha"] = " ".join(partes_celda(celdas[3]))
-        c["actualizado"] = " ".join(partes_celda(celdas[4]))
+        c["organizador"] = " / ".join(textos[1])
+        c["lugar"] = " ".join(textos[2])
+        c["fecha"] = " ".join(textos[3])
+        c["actualizado"] = " ".join(textos[4])
     # comprobación/respaldo: fecha y actualización son lo último de la fila
     texto = " ".join(t for t in (norm(x) for x in tr.stripped_strings) if not re.match(r"(Location|Updated):", t))
     m = re.search(RE_FECHA + r"\s+" + RE_ACT + r"\s*$", texto)
@@ -247,7 +261,7 @@ def listar_competiciones(debug=False):
         time.sleep(PAUSE)
     if not comps:
         sys.exit("Los listados no contienen competiciones: ¿bloqueo o HTML distinto? Mira debug/listado_<año>.html")
-    for c in list(comps.values())[:2]:
+    for c in ([] if debug else list(comps.values())[:2]):
         print("  ejemplo del listado:", {k: c[k] for k in ("toId", "codigo", "competicion", "lugar_original", "lugar", "fecha", "actualizado")})
     return comps
 
@@ -425,6 +439,8 @@ def limpiar_fila(f):
     f["categoria"], f["genero"] = normalizar_categoria(f.get("categoria", ""), f.get("tipo") == "Equipos")
     d = (f.get("division") or "").strip()
     f["division"] = d[:1].upper() + d[1:]
+    if f.get("tipo") != "Equipos":  # todas las filas son del club; el nombre cambia según el año ("Arqueros De Pozuelo", "Cde ...")
+        f["club"] = CLUB_NOMBRE
 
 
 def procesar(tid, nombre, fp_anterior, todas, debug=False):
@@ -447,6 +463,9 @@ def procesar(tid, nombre, fp_anterior, todas, debug=False):
         (d / "Details.html").write_text(html, encoding="utf-8")
     todas_pag = paginas_resultados(tid, soup, url, True)
     paginas = [p for p in todas_pag if todas or p[0].startswith(PAGINAS_BASE)]
+    if debug:
+        print(f"  Páginas de resultados en Details.php: {[p[0] for p in todas_pag] or 'ninguna'}; "
+              f"se descargan: {[p[0] for p in paginas] or 'ninguna'}")
     previas = {p[0]: p for p in todas_pag if p[0].startswith(("IQ", "TQ"))}  # clasificación previa (IQRM, TQRM2...)
     cache_q = {}
     enc = set()  # atletas del club según el listado de inscritos (ENC.php), solo en pruebas con clasificación final IF*/TF*
@@ -538,7 +557,14 @@ def main():
 
     comps = listar_competiciones(bool(args.debug))
     if args.debug:
-        comps = {args.debug: comps.get(args.debug, {"toId": args.debug, "competicion": ""})}
+        c = comps.get(args.debug)
+        if c:
+            print(f"Competición {args.debug}: {c['competicion']} | {c['fecha_inicio']} a {c['fecha_fin']} | "
+                  f"{c['lugar_original']} -> lugar: {c['lugar']!r}")
+        else:
+            print(f"Competición {args.debug}: NO aparece en los listados de {PRIMER_ANIO} a {date.today().year} "
+                  f"(¿no es de España, no está completada o es de otro año?); se prueba igualmente.")
+        comps = {args.debug: c or {"toId": args.debug, "competicion": ""}}
     state = json.loads(STATE.read_text()) if STATE.exists() else {}
     nac, reg = leer_csv(NAC_CSV), leer_csv(REG_CSV)
     previas = {r["toId"]: r for r in leer_csv(COMP_CSV)}
