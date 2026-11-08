@@ -12,7 +12,7 @@ Uso:
                                     # y las filas encontradas en debug/filas_<toId>.csv
   python scraper.py --todas         # incluye también clasificación (IQ/TQ) y cuadros (IB/TB)
 """
-import argparse, csv, hashlib, json, os, re, sys, time, unicodedata
+import argparse, csv, difflib, hashlib, json, os, re, sys, time, unicodedata
 from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
@@ -402,7 +402,8 @@ def _plano(t):
 
 DIVISIONES_CANON = {"recurvo": "Recurvo", "recurve": "Recurvo", "compuesto": "Compuesto", "compound": "Compuesto",
                     "desnudo": "Desnudo", "barebow": "Desnudo", "tradicional": "Tradicional", "longbow": "Longbow",
-                    "instintivo": "Instintivo"}
+                    "instintivo": "Instintivo", "instinctive": "Instintivo", "traditional": "Tradicional",
+                    "arcolargo": "Longbow"}
 RE_GENERO = {"Hombre": r"\b(?:hombres?|masculino|men|male)\b", "Mujer": r"\b(?:mujer(?:es)?|femenino|women|female|veterana)\b",
              "Mixto": r"\b(?:mixto|mixed)\b"}
 # edad: sistema español -> internacional. El orden importa (el primero que encaje).
@@ -415,13 +416,25 @@ EDADES = [("Sub 15", r"\b(?:sub[ -]?15|u[ -]?15|menor(?:es)?|alevin(?:es)?|infan
           ("Promoción", r"\bpromocion\b")]
 
 
-def normalizar_division(d):
-    t = re.sub(r"\b(?:equipos?|hombres?|mujer(?:es)?|mixto|men|women|mixed)\b", " ", _plano(d or ""))
+def _division_canon(d):
+    """Nombre canónico de la división, o None si el texto no es una división. Tolera 'Long bow', 'Arco Instintivo',
+    inglés ('Traditional') y erratas ('Instintovo')."""
+    t = re.sub(r"\b(?:equipos?|hombres?|mujer(?:es)?|mixto|men|women|mixed)\b", " ", _plano(d or "")).strip()
+    junto = re.sub(r"[\s_-]+", "", t)
+    if not junto:
+        return None
     for k in sorted(DIVISIONES_CANON, key=len, reverse=True):
-        if re.search(rf"\b{k}\b", t):
+        if k in junto:
             return DIVISIONES_CANON[k]
-    d = (d or "").strip()
-    return d[:1].upper() + d[1:]
+    for palabra in t.split() + [junto]:
+        cerca = difflib.get_close_matches(palabra, list(DIVISIONES_CANON), n=1, cutoff=0.8)
+        if cerca:
+            return DIVISIONES_CANON[cerca[0]]
+    return None
+
+
+def normalizar_division(d):
+    return _division_canon(d) or ((d or "").strip()[:1].upper() + (d or "").strip()[1:])
 
 
 def genero_de(texto):
@@ -435,6 +448,9 @@ def normalizar_categoria(cat, es_equipo=False):
     Equipos: se quitan 'Equipo' y el género y se unifica '1º/1ª división'."""
     plano = re.sub(r"\[.*?\]", " ", _plano(cat or ""))  # fuera "[Después de 12 flechas]"
     if es_equipo:
+        for nombre, patron in EDADES:
+            if re.search(patron, plano):
+                return nombre
         t = re.sub(r"\b(?:equipos?|hombres?|mujer(?:es)?|mixto|men|women|mixed)\b", " ", plano)
         t = re.sub(r"(\d)\s*[ºª]?\s*division", r"\1ª división", t)
         t = re.sub(r"\s+", " ", t).strip()
@@ -448,9 +464,12 @@ def normalizar_categoria(cat, es_equipo=False):
 
 def limpiar_fila(f):
     es_equipo = f.get("tipo") == "Equipos"
-    f["genero"] = genero_de(f.get("categoria", "") + " " + f.get("division", "")) or f.get("genero", "")
-    f["categoria"] = normalizar_categoria(f.get("categoria", ""), es_equipo)
-    f["division"] = normalizar_division(f.get("division", ""))
+    div, cat = f.get("division", ""), f.get("categoria", "")
+    if div and not _division_canon(div):  # sección escrita "Categoría - División", o categoría en el campo división
+        div, cat = (cat, div) if _division_canon(cat) else ("", f"{div} {cat}".strip())
+    f["genero"] = genero_de(cat + " " + div) or f.get("genero", "")
+    f["categoria"] = normalizar_categoria(cat, es_equipo)
+    f["division"] = normalizar_division(div)
     if not es_equipo:  # todas las filas son del club; el nombre cambia según el año ("Arqueros De Pozuelo", "Cde ...")
         f["club"] = CLUB_NOMBRE
 
