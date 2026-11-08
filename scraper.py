@@ -40,7 +40,8 @@ MIN_AUTONOMICO = 1  # en equipos por comunidades autónomas (código de 3 letras
 DATA = Path("data")
 COMP_CSV, STATE = DATA / "competiciones.csv", DATA / "state.json"
 NAC_CSV, REG_CSV = DATA / "resultados_nacionales.csv", DATA / "resultados_regionales.csv"
-VERSION_DATOS = "3"  # súbela para que la próxima ejecución vuelva a descargar todas las competiciones
+VERSION_DATOS = "4"
+VERSION_COMPATIBLE = "3"  # sus filas buenas no hace falta volver a descargarlas; solo las dudosas  # súbela para que la próxima ejecución vuelva a descargar todas las competiciones
 RES_COLS = ["toId", "competicion", "fecha_inicio", "fecha_fin", "lugar", "codigo_pagina", "tipo", "evento",
             "division", "categoria", "genero", "puntos_clasificacion",
             "posicion_final", "atleta", "club_codigo", "club", "equipo_codigo", "equipo", "miembros",
@@ -61,7 +62,7 @@ RE_ACT = r"(\d{1,2}\s+[A-Za-z]{3}\s+\d{2}:\d{2})"
 RESULT_PAGE = re.compile(r"/((?:I|T)[A-Z0-9]{1,4})\.php$")  # IC, IFRM, TFRM2, IQRM...
 PAGINAS_BASE = ("IF", "TF", "IC")
 CELDA_CLUB = re.compile(r"^(\S+) - (\S.*)$")                # "2138 - Cde Arqueros De Pozuelo"
-DETALLE = re.compile(r"\d\s*:\s*\d")                        # "18m-1: 258 , 18m-2: 232"
+DETALLE = re.compile(r"[\w.]\s*:\s*\d")                        # "18m-1: 258 , 18m-2: 232"
 PUNTOS_RONDA = re.compile(r"(\d+)\s*/\s*(\d+)")              # "284/ 1" = puntos / posición en la ronda
 DIVISIONES = r"Arco Instintivo|Recurvo|Compuesto|Desnudo|Tradicional|Longbow|Instintivo|Barebow"
 
@@ -399,48 +400,64 @@ def _plano(t):
     return "".join(c for c in unicodedata.normalize("NFD", t) if unicodedata.category(c) != "Mn").lower()
 
 
-GENEROS = {"hombre": "Hombre", "hombres": "Hombre", "masculino": "Hombre", "men": "Hombre", "male": "Hombre",
-           "mujer": "Mujer", "mujeres": "Mujer", "femenino": "Mujer", "women": "Mujer", "female": "Mujer",
-           "mixto": "Mixto", "mixed": "Mixto"}
-# sistema español -> sistema internacional (es la misma categoría)
-EDADES = {"menor": "Sub 15", "menores": "Sub 15", "alevin": "Sub 15", "alevines": "Sub 15",
-          "cadete": "Sub 18", "cadetes": "Sub 18", "junior": "Sub 21", "juniors": "Sub 21",
-          "veterano": "Plus 50", "veteranos": "Plus 50"}
+DIVISIONES_CANON = {"recurvo": "Recurvo", "recurve": "Recurvo", "compuesto": "Compuesto", "compound": "Compuesto",
+                    "desnudo": "Desnudo", "barebow": "Desnudo", "tradicional": "Tradicional", "longbow": "Longbow",
+                    "instintivo": "Instintivo"}
+RE_GENERO = {"Hombre": r"\b(?:hombres?|masculino|men|male)\b", "Mujer": r"\b(?:mujer(?:es)?|femenino|women|female|veterana)\b",
+             "Mixto": r"\b(?:mixto|mixed)\b"}
+# edad: sistema español -> internacional. El orden importa (el primero que encaje).
+EDADES = [("Sub 15", r"\b(?:sub[ -]?15|u[ -]?15|menor(?:es)?|alevin(?:es)?|infantil(?:es)?)\b"),
+          ("Sub 18", r"\b(?:sub[ -]?18|u[ -]?18|cadet[ea]s?)\b"),
+          ("Sub 21", r"\b(?:sub[ -]?21|u[ -]?21|juniors?)\b"),
+          ("Senior", r"\b(?:senior(?:es)?|absolut[oa]s?)\b"),
+          ("Veterano", r"\b(?:plus[ -]?50|veteran[oa]s?|master)\b|\b50\s?\+|\+\s?50\b"),
+          ("Novel", r"\b(?:novel(?:es)?)\b"),
+          ("Promoción", r"\bpromocion\b")]
+
+
+def normalizar_division(d):
+    t = re.sub(r"\b(?:equipos?|hombres?|mujer(?:es)?|mixto|men|women|mixed)\b", " ", _plano(d or ""))
+    for k in sorted(DIVISIONES_CANON, key=len, reverse=True):
+        if re.search(rf"\b{k}\b", t):
+            return DIVISIONES_CANON[k]
+    d = (d or "").strip()
+    return d[:1].upper() + d[1:]
+
+
+def genero_de(texto):
+    t = _plano(texto)
+    return next((g for g, r in RE_GENERO.items() if re.search(r, t)), "")
 
 
 def normalizar_categoria(cat, es_equipo=False):
-    """Unifica mayúsculas/minúsculas y equivalencias. Devuelve (categoria, genero).
-    Individual: el género va al final. Equipos: solo se unifica el género y se respeta el resto."""
-    resto, genero = [], ""
-    for p in norm(cat).split():
-        k = _plano(p)
-        if k in GENEROS:
-            genero = GENEROS[k]
-            if es_equipo:
-                resto.append(genero)
-            continue
-        if not es_equipo:
-            m = re.fullmatch(r"(?:u|sub)-?(\d{2})", k)
-            if k in EDADES:
-                p = EDADES[k]
-            elif m:
-                p = f"Sub {m.group(1)}"
-            elif k in ("sub", "plus"):
-                p = k.capitalize()
-            elif p.isalpha() and (p.islower() or p.isupper()):
-                p = p.capitalize()
-        resto.append(p)
-    if not es_equipo and genero:
-        resto.append(genero)
-    return " ".join(resto), genero
+    """Individual: solo Sub 15 / Sub 18 / Sub 21 / Senior / Veterano / Novel (sin género ni distancias ni puntos);
+    'Hombre' o 'Mujer' a secas (clasificación absoluta) = Senior; si no se reconoce, queda vacío.
+    Equipos: se quitan 'Equipo' y el género y se unifica '1º/1ª división'."""
+    plano = re.sub(r"\[.*?\]", " ", _plano(cat or ""))  # fuera "[Después de 12 flechas]"
+    if es_equipo:
+        t = re.sub(r"\b(?:equipos?|hombres?|mujer(?:es)?|mixto|men|women|mixed)\b", " ", plano)
+        t = re.sub(r"(\d)\s*[ºª]?\s*division", r"\1ª división", t)
+        t = re.sub(r"\s+", " ", t).strip()
+        return (t[:1].upper() + t[1:]).replace("(fase final)", "(Fase final)")
+    for nombre, patron in EDADES:
+        if re.search(patron, plano):
+            return nombre
+    resto = re.sub(r"\b(?:hombres?|mujer(?:es)?|mixto|masculino|femenino|calificacion)\b", " ", plano).strip()
+    return "Senior" if plano.strip() and not resto else ""
 
 
 def limpiar_fila(f):
-    f["categoria"], f["genero"] = normalizar_categoria(f.get("categoria", ""), f.get("tipo") == "Equipos")
-    d = (f.get("division") or "").strip()
-    f["division"] = d[:1].upper() + d[1:]
-    if f.get("tipo") != "Equipos":  # todas las filas son del club; el nombre cambia según el año ("Arqueros De Pozuelo", "Cde ...")
+    es_equipo = f.get("tipo") == "Equipos"
+    f["genero"] = genero_de(f.get("categoria", "") + " " + f.get("division", "")) or f.get("genero", "")
+    f["categoria"] = normalizar_categoria(f.get("categoria", ""), es_equipo)
+    f["division"] = normalizar_division(f.get("division", ""))
+    if not es_equipo:  # todas las filas son del club; el nombre cambia según el año ("Arqueros De Pozuelo", "Cde ...")
         f["club"] = CLUB_NOMBRE
+
+
+def fila_dudosa(f):
+    """Fila individual sin división o sin categoría reconocible (título de sección mal leído)."""
+    return f.get("tipo") == "Individual" and (not f.get("division") or not f.get("categoria"))
 
 
 def procesar(tid, nombre, fp_anterior, todas, debug=False):
@@ -571,6 +588,12 @@ def main():
     revisadas = set()
     hoy = date.today()
     antiguas = (hoy - timedelta(days=DIAS_REVISION)).isoformat()
+    dudosas = {r["toId"] for r in nac + reg if fila_dudosa(r)}
+    for tid, est in state.items():  # filas correctas de la versión anterior: se dan por buenas sin descargar de nuevo
+        if isinstance(est, dict) and est.get("v") == VERSION_COMPATIBLE and tid not in dudosas:
+            est["v"] = VERSION_DATOS
+    if dudosas:
+        print(f"{len(dudosas)} competiciones con filas dudosas se vuelven a descargar")
     pendientes = [t for t in comps if t not in state]
     print(f"{len(comps)} competiciones en los listados, {len(pendientes)} sin descargar todavía")
 

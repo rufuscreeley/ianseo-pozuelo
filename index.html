@@ -156,12 +156,13 @@ function ordenar(rows) {
   return rows.slice().sort((a, b) =>
     (col.num ? cmp(numero(a[col.k]), numero(b[col.k])) : texto(a[col.sortK || col.k], b[col.sortK || col.k])) * state.sortDir || ordenPorDefecto(a, b));
 }
-function filtrar(rows) {
-  const f = state.f, q = norm(f.q);
-  const campos = state.tab === "individual" ? ["atleta", "club"] : ["equipo", "miembros"];
+/* comunes: para el resumen del otro grupo (categoría y búsqueda solo se aplican al grupo que se está viendo) */
+function filtrar(rows, tab = state.tab, comunes = false) {
+  const f = state.f, q = comunes ? "" : norm(f.q);
+  const campos = tab === "individual" ? ["atleta", "club"] : ["equipo", "miembros"];
   return rows.filter(r =>
     (!f.anio || (r.fecha_inicio || "").slice(0, 4) === f.anio) && (!f.ambito || r.ambito === f.ambito) && (!f.comp || r.toId === f.comp) &&
-    (!f.div || r.division === f.div) && (!f.cat || r.categoria === f.cat) && (!f.gen || r.genero === f.gen) &&
+    (!f.div || r.division === f.div) && (comunes || !f.cat || r.categoria === f.cat) && (!f.gen || r.genero === f.gen) &&
     (!q || campos.some(k => norm(r[k]).includes(q))));
 }
 
@@ -180,7 +181,8 @@ function reconstruirFiltros() {
     .sort((a, b) => texto(fechas.get(b[0]), fechas.get(a[0])) || cmp(+b[0], +a[0]));
   opciones($("f-comp"), comps);
   opciones($("f-div"), unicos(r => [r.division, r.division]).sort((a, b) => texto(a[1], b[1])));
-  opciones($("f-cat"), unicos(r => [r.categoria, r.categoria]).sort((a, b) => texto(a[1], b[1])));
+  const ORDEN = ["Sub 15", "Sub 18", "Sub 21", "Senior", "Veterano", "Novel"], pos = v => (ORDEN.includes(v) ? ORDEN.indexOf(v) : 99);
+  opciones($("f-cat"), unicos(r => [r.categoria, r.categoria]).sort((a, b) => cmp(pos(a[1]), pos(b[1])) || texto(a[1], b[1])));
   opciones($("f-anio"), unicos(r => [(r.fecha_inicio || "").slice(0, 4), (r.fecha_inicio || "").slice(0, 4)]).sort((a, b) => cmp(b[0], a[0])));
   opciones($("f-gen"), unicos(r => [r.genero || "", r.genero || ""]).sort((a, b) => texto(a[1], b[1])));
   opciones($("f-ambito"), unicos(r => [r.ambito || "", r.ambito || ""]));
@@ -229,10 +231,12 @@ function pintarTabla() {
     td.textContent = "No hay resultados con estos filtros.";
   }
   $("count").textContent = rows.length + (rows.length === 1 ? " resultado" : " resultados");
+  pintarResumen();
 }
 
 function pintarResumen() {
-  const ind = DATA.individual, eq = DATA.equipos;
+  const ind = filtrar(DATA.individual, "individual", state.tab !== "individual");
+  const eq = filtrar(DATA.equipos, "equipos", state.tab !== "equipos");
   const todas = new Set([...ind, ...eq].map(r => r.toId));
   const medallas = rows => [1, 2, 3].map(p => rows.filter(r => parseInt(r.posicion_final, 10) === p).length);
   const [o, p, b] = medallas(ind), [eo, ep, eb] = medallas(eq);
@@ -275,7 +279,7 @@ async function iniciar() {
   todas.forEach(r => { r.puntos = r.puntos_totales || r.puntos_clasificacion || ""; });
   DATA.individual = todas.filter(r => r.tipo === "Individual");
   DATA.equipos = todas.filter(r => r.tipo === "Equipos");
-  pintarResumen(); reconstruirFiltros(); pintarTabla();
+  reconstruirFiltros(); pintarTabla();
 
   try {
     const m = await (await fetch("data/meta.json", { cache: "no-store" })).json();
