@@ -61,6 +61,7 @@ RE_FECHA = r"(\d{1,2}\s+[A-Za-z]{3}\s*-\s*\d{1,2}\s+[A-Za-z]{3}|\d{1,2}\s*-\s*\d
 RE_ACT = r"(\d{1,2}\s+[A-Za-z]{3}\s+\d{2}:\d{2})"
 RESULT_PAGE = re.compile(r"/((?:I|T)[A-Z0-9]{1,4})\.php$")  # IC, IFRM, TFRM2, IQRM...
 PAGINAS_BASE = ("IF", "TF", "IC")
+CODIGO_DIVISION = {"R": "Recurvo", "C": "Compuesto", "B": "Desnudo", "L": "Longbow"}  # 3.ª letra de IFRM, TFCW, IFBU...
 CELDA_CLUB = re.compile(r"^(\S+) - (\S.*)$")                # "2138 - Cde Arqueros De Pozuelo"
 DETALLE = re.compile(r"[\w.]\s*:\s*\d")                        # "18m-1: 258 , 18m-2: 232"
 PUNTOS_RONDA = re.compile(r"(\d+)\s*/\s*(\d+)")              # "284/ 1" = puntos / posición en la ronda
@@ -474,6 +475,11 @@ def limpiar_fila(f):
     f["genero"] = genero_de(cat + " " + div) or f.get("genero", "")
     f["categoria"] = normalizar_categoria(cat, es_equipo)
     f["division"] = normalizar_division(div)
+    if not f["division"]:  # pruebas que no son de una división de arco: se nombran por el tipo de competición
+        n = _plano(f.get("competicion", ""))
+        f["division"] = ("Run Archery" if re.search(r"run[ -]?archery", n) else
+                         "Paraarco" if re.search(r"discapacidad|para[ -]?archery|paraarco", n) else
+                         "3D" if re.search(r"\b3d\b", n) else "")
     if not es_equipo:  # todas las filas son del club; el nombre cambia según el año ("Arqueros De Pozuelo", "Cde ...")
         f["club"] = CLUB_NOMBRE
 
@@ -559,6 +565,8 @@ def procesar(tid, nombre, fp_anterior, todas, debug=False):
                 division, categoria = dividir(evento)
                 if not division and seccion:
                     division, categoria = dividir(seccion)
+                if not division and len(codigo) > 2:  # último recurso: la letra de división del código de la página
+                    division = CODIGO_DIVISION.get(codigo[2], "")
             else:
                 division, categoria = dividir(seccion or evento)
             clave = (campos["equipo_codigo"], campos["equipo"]) if es_equipo else campos["atleta"]

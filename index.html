@@ -20,10 +20,25 @@
   body { margin: 0; background: var(--bg); color: var(--fg);
          font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
-  header.hero { background: var(--accent); color: #fff; padding: 32px 0 28px; }
-  @media (prefers-color-scheme: dark) { header.hero { color: #0d1511; } }
-  header.hero h1 { margin: 0 0 4px; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -.01em; }
-  header.hero p { margin: 0; opacity: .92; }
+  header.site { background: var(--card); border-bottom: 1px solid var(--border); }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding-top: 12px; padding-bottom: 12px; }
+  .brand { font-size: 1.25rem; font-weight: 700; color: var(--fg); text-decoration: none; letter-spacing: -.01em; }
+  header.site nav { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+  header.site nav a { color: var(--fg); text-decoration: none; font-size: .95rem; padding: 4px 0; border-bottom: 2px solid transparent; }
+  header.site nav a:hover, header.site nav a.activo { border-bottom-color: var(--accent); }
+  section.hero { background: var(--accent); color: #fff; padding: 36px 0 40px; }
+  @media (prefers-color-scheme: dark) { section.hero { color: #0d1511; } }
+  .embed header.site, .embed section.hero { display: none; }
+  .embed .stats { margin-top: 12px; }
+  .sobre { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-top: 28px; }
+  .sobre h2 { margin: 0 0 8px; font-size: 1.1rem; }
+  .sobre p { margin: 0 0 8px; }
+  .sobre a, footer a { color: var(--accent); }
+  .licencia { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px; }
+  .licencia img { height: 31px; width: auto; }
+  section.hero h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -.01em; }
+  section.hero h1, section.hero p { margin: 0; }
+  section.hero p { margin-top: 6px; opacity: .92; }
   .stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin: -22px 0 20px; }
   .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
           box-shadow: 0 1px 2px rgba(0,0,0,.05); }
@@ -59,12 +74,23 @@
 </style>
 </head>
 <body>
-<header class="hero">
-  <div class="wrap">
-    <h1>Arqueros de Pozuelo</h1>
-    <p>Resultados de competiciones de tiro con arco · 2026</p>
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="https://www.arcopozuelo.com/home" target="_top">Arcopozuelo</a>
+    <nav aria-label="Club">
+      <a href="https://www.arcopozuelo.com/home" target="_top">Home</a>
+      <a href="https://www.arcopozuelo.com/formaci%C3%B3n" target="_top">Formación</a>
+      <a href="https://www.arcopozuelo.com/inscripci%C3%B3n-de-nuevos-socios" target="_top">Inscripción de nuevos socios</a>
+      <a href="#" class="activo" aria-current="page">Resultados</a>
+    </nav>
   </div>
 </header>
+<section class="hero">
+  <div class="wrap">
+    <h1>Resultados del Club de Arqueros de Pozuelo</h1>
+    <p>Club de arqueros de Pozuelo de Alarcón · competiciones de tiro con arco en España desde 2021</p>
+  </div>
+</section>
 
 <main class="wrap">
   <section class="stats" id="stats" aria-label="Resumen"></section>
@@ -87,10 +113,29 @@
 
   <div class="table-wrap"><table id="tabla"><thead></thead><tbody></tbody></table></div>
   <p class="count" id="count"></p>
+
+  <section class="sobre" aria-labelledby="acerca">
+    <h2 id="acerca">Acerca de este proyecto</h2>
+    <p>Esta web reúne los resultados de los deportistas del Club de Arqueros de Pozuelo en las competiciones de tiro con arco
+       celebradas en España desde 2021: clasificaciones individuales y por equipos, con filtros por año, competición, división,
+       categoría y género. Los datos proceden de <a href="https://www.ianseo.net" target="_blank" rel="noopener">Ianseo</a>,
+       se recogen de forma automática los días 1 y 15 de cada mes y se publican aquí sin intervención manual. El código y los datos
+       están disponibles en <a href="https://github.com/rufuscreeley/ianseo-pozuelo" target="_blank" rel="noopener">GitHub</a>.</p>
+    <p>Autoría: <a href="https://scholar.google.es/citations?user=VxjO4dMAAAAJ&hl=es" target="_blank" rel="noopener">Rafael Carrasco</a>,
+       profesor de Periodismo en la Universidad Complutense de Madrid.</p>
+    <div class="licencia">
+      <a rel="license noopener" target="_blank" href="https://creativecommons.org/licenses/by-sa/4.0/deed.es">
+        <img alt="Licencia Creative Commons" src="https://licensebuttons.net/l/by-sa/4.0/88x31.png"></a>
+      <span>Esta obra está bajo una licencia
+        <a rel="license noopener" target="_blank" href="https://creativecommons.org/licenses/by-sa/4.0/deed.es">Creative Commons Atribución-CompartirIgual 4.0 Internacional (CC BY-SA 4.0)</a>.
+        La licencia se refiere a esta recopilación y a su diseño; los resultados originales pertenecen a sus organizadores.</span>
+    </div>
+  </section>
 </main>
 
 <footer>
   <div class="wrap">
+    Club Arqueros de Pozuelo · Polideportivo Carlos Ruiz, Pozuelo de Alarcón · <a href="mailto:arcopozuelo@gmail.com">arcopozuelo@gmail.com</a><br>
     Datos obtenidos de <a href="https://www.ianseo.net" target="_blank" rel="noopener">Ianseo</a>.
     <span id="actualizado"></span> En las competiciones nacionales, los puntos son los de la ronda de clasificación. Se actualizan automáticamente los días 1 y 15 de cada mes.
   </div>
@@ -289,6 +334,7 @@ async function iniciar() {
   } catch (e) { /* sin fecha */ }
 }
 
+if (new URLSearchParams(location.search).has("embed")) document.body.classList.add("embed");
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => cambiarPestana(b.dataset.tab)));
 [["f-q", "q"], ["f-anio", "anio"], ["f-ambito", "ambito"], ["f-comp", "comp"], ["f-div", "div"], ["f-cat", "cat"], ["f-gen", "gen"]].forEach(([id, k]) =>
   $(id).addEventListener(id === "f-q" ? "input" : "change", e => { state.f[k] = e.target.value; pintarTabla(); }));
