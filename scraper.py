@@ -40,8 +40,8 @@ MIN_AUTONOMICO = 1  # en equipos por comunidades autónomas (código de 3 letras
 DATA = Path("data")
 COMP_CSV, STATE = DATA / "competiciones.csv", DATA / "state.json"
 NAC_CSV, REG_CSV = DATA / "resultados_nacionales.csv", DATA / "resultados_regionales.csv"
-VERSION_DATOS = "5"
-VERSIONES_COMPATIBLES = {"3", "4"}  # sus filas buenas no hace falta volver a descargarlas; solo las dudosas  # súbela para que la próxima ejecución vuelva a descargar todas las competiciones
+VERSION_DATOS = "6"
+VERSIONES_COMPATIBLES = {"3", "4", "5"}  # sus filas buenas no hace falta volver a descargarlas; solo las dudosas  # súbela para que la próxima ejecución vuelva a descargar todas las competiciones
 RES_COLS = ["toId", "competicion", "fecha_inicio", "fecha_fin", "lugar", "codigo_pagina", "tipo", "evento",
             "division", "categoria", "genero", "puntos_clasificacion",
             "posicion_final", "atleta", "club_codigo", "club", "equipo_codigo", "equipo", "miembros",

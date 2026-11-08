@@ -5,95 +5,89 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Arqueros de Pozuelo · Resultados 2026</title>
 <meta name="description" content="Resultados de los deportistas del club Arqueros de Pozuelo en las competiciones de tiro con arco de 2026.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap">
 <style>
+  /* Estilo de la web del club (Google Sites): Lato, fondo blanco, títulos en azul marino #11188e, portada con velo blanco.
+     Para cambiar la imagen de portada o el logo: sustituir portada.jpg y logo.png en la raíz del repositorio. */
   :root {
-    --bg: #f6f7f5; --card: #ffffff; --fg: #1d2420; --muted: #66706a; --border: #dfe4df;
-    --accent: #0b6e4f; --accent-soft: #e3f2ec; --row-alt: #fafbfa; --warn: #8a5a00;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #121614; --card: #1a201d; --fg: #e8ede9; --muted: #98a39c; --border: #2c3631;
-      --accent: #4cc39a; --accent-soft: #1f3a30; --row-alt: #1d2420; --warn: #e0b04c;
-    }
+    --bg: #ffffff; --card: #ffffff; --fg: #212121; --muted: #666666; --border: #e1e1e8;
+    --accent: #11188e; --accent-soft: #e9eaf6; --link: #0e1372; --row-alt: #f7f7fb; --warn: #8a5a00;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg);
-         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 400 16px/1.6 Lato, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
-  header.site { background: var(--card); border-bottom: 1px solid var(--border); }
-  .bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding-top: 12px; padding-bottom: 12px; }
-  .brand { font-size: 1.25rem; font-weight: 700; color: var(--fg); text-decoration: none; letter-spacing: -.01em; }
-  header.site nav { display: flex; flex-wrap: wrap; gap: 4px 20px; }
-  header.site nav a { color: var(--fg); text-decoration: none; font-size: .95rem; padding: 4px 0; border-bottom: 2px solid transparent; }
-  header.site nav a:hover, header.site nav a.activo { border-bottom-color: var(--accent); }
-  section.hero { background: var(--accent); color: #fff; padding: 36px 0 40px; }
-  @media (prefers-color-scheme: dark) { section.hero { color: #0d1511; } }
-  .embed header.site, .embed section.hero { display: none; }
-  .embed .stats { margin-top: 12px; }
-  .sobre { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-top: 28px; }
-  .sobre h2 { margin: 0 0 8px; font-size: 1.1rem; }
-  .sobre p { margin: 0 0 8px; }
-  .sobre a, footer a { color: var(--accent); }
-  .licencia { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px; }
-  .licencia img { height: 31px; width: auto; }
-  section.hero h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -.01em; }
-  section.hero h1, section.hero p { margin: 0; }
-  section.hero p { margin-top: 6px; opacity: .92; }
-  .stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin: -22px 0 20px; }
-  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
-          box-shadow: 0 1px 2px rgba(0,0,0,.05); }
-  .stat .n { font-size: 1.7rem; font-weight: 700; line-height: 1.15; }
-  .stat .l { color: var(--muted); font-size: .86rem; }
-  .tabs { display: flex; gap: 8px; margin: 8px 0 12px; }
-  .tab { border: 1px solid var(--border); background: var(--card); color: var(--fg); padding: 8px 16px;
-         border-radius: 999px; font: inherit; cursor: pointer; }
-  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  @media (prefers-color-scheme: dark) { .tab[aria-selected="true"] { color: #0d1511; } }
-  .filters { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 12px; }
-  .filters label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: 2px; }
-  .filters input, .filters select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
-                                    background: var(--card); color: var(--fg); font: inherit; }
+  a { color: var(--link); }
+  section.hero { text-align: center; padding: 56px 16px 64px;
+    background: linear-gradient(rgba(255,255,255,.64), rgba(255,255,255,.64)), url("portada.jpg") center / cover no-repeat, #e9ecf2; }
+  section.hero h1 { margin: 0; font-weight: 300; font-size: clamp(2.6rem, 8vw, 5.2rem); line-height: 1.1; color: var(--fg); }
+  section.hero p { margin: 14px 0 0; font-weight: 300; font-size: clamp(1.1rem, 3vw, 2rem); color: var(--fg); }
+  .embed section.hero { display: none; }
+  .embed .stats { margin-top: 8px; }
+  .stats { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin: 28px 0 22px; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
+  .stat .n { font-size: 1.7rem; font-weight: 300; line-height: 1.2; color: var(--accent); }
+  .stat .l { color: var(--muted); font-size: .88rem; }
+  .tabs { display: flex; gap: 8px; margin: 8px 0 14px; }
+  .tab { border: 1px solid var(--border); background: var(--card); color: var(--fg); padding: 7px 18px; border-radius: 999px; font: inherit; cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .filters { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 14px; }
+  .filters label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 2px; }
+  .filters input, .filters select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: var(--fg); font: inherit; }
   .filters .reset { align-self: end; }
-  button.reset { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: transparent;
-                 color: var(--fg); font: inherit; cursor: pointer; }
-  .table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
-  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  button.reset { padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--fg); font: inherit; cursor: pointer; }
+  .table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: .94rem; }
   th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
-  th { position: sticky; top: 0; background: var(--card); font-weight: 600; white-space: nowrap; cursor: pointer; user-select: none; }
-  th:hover { color: var(--accent); }
+  th { position: sticky; top: 0; background: #fff; color: var(--accent); font-weight: 700; white-space: nowrap; cursor: pointer; user-select: none; border-bottom: 2px solid var(--accent); }
+  th:hover { text-decoration: underline; }
   tbody tr:nth-child(even) { background: var(--row-alt); }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   td.muted { color: var(--muted); }
-  td .sub { color: var(--muted); font-size: .8rem; margin-top: 2px; }
+  td .sub { color: var(--muted); font-size: .82rem; margin-top: 2px; }
   .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .75rem; background: var(--accent-soft); color: var(--accent); }
-  .count { color: var(--muted); font-size: .86rem; margin: 8px 2px 0; }
+  .count { color: var(--muted); font-size: .88rem; margin: 8px 2px 0; }
   .msg { padding: 28px 16px; text-align: center; color: var(--muted); }
   .error { color: var(--warn); }
-  footer { color: var(--muted); font-size: .82rem; padding: 24px 0 40px; }
+  .sobre { margin-top: 40px; padding-top: 8px; }
+  .sobre h2 { margin: 0 0 10px; font-size: 1.9rem; font-weight: 400; color: var(--accent); }
+  .sobre p { margin: 0 0 10px; }
+  .licencia { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; font-size: .9rem; }
+  .licencia img { height: 31px; width: auto; }
+  .pie-tabla { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 8px; }
+  .pie-tabla .count { margin: 0; }
+  .pager { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .pager button { min-width: 36px; padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: var(--fg); font: inherit; cursor: pointer; }
+  .pager button[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .pager button:disabled { opacity: .45; cursor: default; }
+  .tam { font-size: .88rem; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .tam select { padding: 5px 8px; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: var(--fg); font: inherit; }
+  .podio { margin: 0 0 22px; }
+  .podio h2 { margin: 0; font-size: 1.5rem; font-weight: 400; color: var(--accent); }
+  .podio .ambito { margin: 2px 0 10px; color: var(--muted); font-size: .9rem; }
+  .podio-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .medallista { display: flex; gap: 14px; align-items: center; border: 1px solid var(--border); border-radius: 4px; padding: 12px 14px; background: var(--card); }
+  .medallista .foto { flex: none; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--accent-soft); color: var(--accent);
+                      display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; }
+  .medallista .foto img { width: 100%; height: 100%; object-fit: cover; }
+  .medallista .nombre { font-weight: 700; }
+  .medallista .ctx { color: var(--muted); font-size: .85rem; }
+  footer { color: var(--muted); font-size: .85rem; padding: 24px 0 40px; border-top: 1px solid var(--border); margin-top: 32px; }
   footer a { color: inherit; }
 </style>
 </head>
 <body>
-<header class="site">
-  <div class="wrap bar">
-    <a class="brand" href="https://www.arcopozuelo.com/home" target="_top">Arcopozuelo</a>
-    <nav aria-label="Club">
-      <a href="https://www.arcopozuelo.com/home" target="_top">Home</a>
-      <a href="https://www.arcopozuelo.com/formaci%C3%B3n" target="_top">Formación</a>
-      <a href="https://www.arcopozuelo.com/inscripci%C3%B3n-de-nuevos-socios" target="_top">Inscripción de nuevos socios</a>
-      <a href="#" class="activo" aria-current="page">Resultados</a>
-    </nav>
-  </div>
-</header>
 <section class="hero">
   <div class="wrap">
-    <h1>Resultados del Club de Arqueros de Pozuelo</h1>
-    <p>Club de arqueros de Pozuelo de Alarcón · competiciones de tiro con arco en España desde 2021</p>
+    <h1>Resultados</h1>
+    <p>Club de arqueros de Pozuelo de Alarcón · Competiciones de tiro con arco en España desde 2021</p>
   </div>
 </section>
 
 <main class="wrap">
   <section class="stats" id="stats" aria-label="Resumen"></section>
+  <section class="podio" id="podio" aria-label="Medallistas destacados"></section>
 
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" id="tab-individual" aria-selected="true" data-tab="individual">Individual</button>
@@ -104,7 +98,6 @@
     <div><label for="f-q">Buscar</label><input id="f-q" type="search" placeholder="Atleta, equipo..."></div>
     <div><label for="f-anio">Año</label><select id="f-anio"></select></div>
     <div id="box-ambito"><label for="f-ambito">Ámbito</label><select id="f-ambito"></select></div>
-    <div><label for="f-comp">Competición</label><select id="f-comp"></select></div>
     <div><label for="f-div">División</label><select id="f-div"></select></div>
     <div><label for="f-cat">Categoría</label><select id="f-cat"></select></div>
     <div><label for="f-gen">Género</label><select id="f-gen"></select></div>
@@ -112,7 +105,12 @@
   </section>
 
   <div class="table-wrap"><table id="tabla"><thead></thead><tbody></tbody></table></div>
-  <p class="count" id="count"></p>
+  <div class="pie-tabla">
+    <p class="count" id="count"></p>
+    <div class="pager" id="pager" role="navigation" aria-label="Paginación"></div>
+    <label class="tam">Resultados por página
+      <select id="f-tam"><option value="5" selected>5</option><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="0">Todos</option></select></label>
+  </div>
 
   <section class="sobre" aria-labelledby="acerca">
     <h2 id="acerca">Acerca de este proyecto</h2>
@@ -157,7 +155,7 @@ const COLS = {
 };
 const MEDALLAS = ["🥇", "🥈", "🥉"];
 const DATA = { individual: [], equipos: [] };
-const state = { tab: "individual", sortKey: null, sortDir: 1, f: { q: "", anio: "", ambito: "", comp: "", div: "", cat: "", gen: "" } };
+const state = { tab: "individual", sortKey: null, sortDir: 1, pag: 0, tam: 5, f: { q: "", anio: "", ambito: "", div: "", cat: "", gen: "" } };
 const $ = id => document.getElementById(id);
 
 /* CSV con comillas, comas y saltos de línea dentro de campos */
@@ -206,7 +204,7 @@ function filtrar(rows, tab = state.tab, comunes = false) {
   const f = state.f, q = comunes ? "" : norm(f.q);
   const campos = tab === "individual" ? ["atleta", "club"] : ["equipo", "miembros"];
   return rows.filter(r =>
-    (!f.anio || (r.fecha_inicio || "").slice(0, 4) === f.anio) && (!f.ambito || r.ambito === f.ambito) && (!f.comp || r.toId === f.comp) &&
+    (!f.anio || (r.fecha_inicio || "").slice(0, 4) === f.anio) && (!f.ambito || r.ambito === f.ambito) &&
     (!f.div || r.division === f.div) && (comunes || !f.cat || r.categoria === f.cat) && (!f.gen || r.genero === f.gen) &&
     (!q || campos.some(k => norm(r[k]).includes(q))));
 }
@@ -221,10 +219,6 @@ function opciones(sel, valores, etiqueta) {
 function reconstruirFiltros() {
   const rows = DATA[state.tab];
   const unicos = (fn) => [...new Map(rows.map(r => [fn(r)[0], fn(r)])).values()].filter(([v]) => v);
-  const fechas = new Map(rows.map(r => [r.toId, r.fecha_inicio || ""]));
-  const comps = unicos(r => [r.toId, r.competicion + (r.fecha_inicio ? " · " + fmtFecha(r.fecha_inicio, r.fecha_fin) : "")])
-    .sort((a, b) => texto(fechas.get(b[0]), fechas.get(a[0])) || cmp(+b[0], +a[0]));
-  opciones($("f-comp"), comps);
   opciones($("f-div"), unicos(r => [r.division, r.division]).sort((a, b) => texto(a[1], b[1])));
   const ORDEN = ["Sub 15", "Sub 18", "Sub 21", "Senior", "Veterano", "Novel"], pos = v => (ORDEN.includes(v) ? ORDEN.indexOf(v) : 99);
   opciones($("f-cat"), unicos(r => [r.categoria, r.categoria]).sort((a, b) => cmp(pos(a[1]), pos(b[1])) || texto(a[1], b[1])));
@@ -232,7 +226,7 @@ function reconstruirFiltros() {
   opciones($("f-gen"), unicos(r => [r.genero || "", r.genero || ""]).sort((a, b) => texto(a[1], b[1])));
   opciones($("f-ambito"), unicos(r => [r.ambito || "", r.ambito || ""]));
   $("box-ambito").hidden = state.tab !== "individual";
-  state.f.comp = $("f-comp").value; state.f.div = $("f-div").value; state.f.cat = $("f-cat").value;
+  state.f.div = $("f-div").value; state.f.cat = $("f-cat").value;
   state.f.ambito = $("f-ambito").value; state.f.gen = $("f-gen").value; state.f.anio = $("f-anio").value;
 }
 
@@ -264,19 +258,89 @@ function pintarTabla() {
     th.setAttribute("aria-sort", state.sortKey === c.k ? (state.sortDir === 1 ? "ascending" : "descending") : "none");
     th.addEventListener("click", () => {
       if (state.sortKey === c.k) state.sortDir *= -1; else { state.sortKey = c.k; state.sortDir = c.sortK ? -1 : 1; }
-      pintarTabla();
+      state.pag = 0; pintarTabla();
     });
     hr.appendChild(th);
   });
   const rows = ordenar(filtrar(DATA[state.tab]));
   const tbody = $("tabla").tBodies[0]; tbody.replaceChildren();
-  rows.forEach(r => { const tr = tbody.insertRow(); cols.forEach(c => celda(tr, c, r)); });
+  const tam = state.tam || Math.max(rows.length, 1), paginas = Math.max(1, Math.ceil(rows.length / tam));
+  state.pag = Math.min(state.pag, paginas - 1);
+  rows.slice(state.pag * tam, state.pag * tam + tam).forEach(r => { const tr = tbody.insertRow(); cols.forEach(c => celda(tr, c, r)); });
   if (!rows.length) {
     const td = tbody.insertRow().insertCell(); td.colSpan = cols.length; td.className = "msg";
     td.textContent = "No hay resultados con estos filtros.";
   }
-  $("count").textContent = rows.length + (rows.length === 1 ? " resultado" : " resultados");
+  const desde = rows.length ? state.pag * tam + 1 : 0, hasta = Math.min(rows.length, state.pag * tam + tam);
+  $("count").textContent = rows.length + (rows.length === 1 ? " resultado" : " resultados") + (rows.length > 5 && paginas > 1 ? ` · mostrando ${desde}–${hasta}` : "");
+  pintarPaginador(paginas);
   pintarResumen();
+}
+
+function pintarPaginador(paginas) {
+  const nav = $("pager"); nav.replaceChildren();
+  if (paginas <= 1) return;
+  const boton = (texto, pag, opts = {}) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = texto;
+    if (opts.off) b.disabled = true;
+    if (opts.actual) b.setAttribute("aria-current", "page");
+    b.addEventListener("click", () => { state.pag = pag; pintarTabla(); });
+    nav.appendChild(b);
+  };
+  boton("‹ Anterior", state.pag - 1, { off: state.pag === 0 });
+  const mostrar = [...new Set([0, state.pag - 1, state.pag, state.pag + 1, paginas - 1])].filter(i => i >= 0 && i < paginas).sort((a, b) => a - b);
+  mostrar.forEach((i, k) => {
+    if (k && i - mostrar[k - 1] > 1) { const s = document.createElement("span"); s.textContent = "…"; nav.appendChild(s); }
+    boton(String(i + 1), i, { actual: i === state.pag });
+  });
+  boton("Siguiente ›", state.pag + 1, { off: state.pag === paginas - 1 });
+}
+
+/* "CARRASCO POLAINO Rafael" -> "Rafael Carrasco Polaino" */
+function nombreBonito(nombre) {
+  const t = (nombre || "").split(/\s+/), esApellido = w => w === w.toUpperCase() && w !== w.toLowerCase() && !/[ªº]/.test(w);
+  let i = 0; while (i < t.length && esApellido(t[i])) i++;
+  if (i === 0 || i === t.length) return t.map(w => w[0] + w.slice(1).toLowerCase()).join(" ");
+  const part = new Set(["de", "del", "la", "las", "los", "y", "i"]);
+  const ap = t.slice(0, i).map((w, k) => { const l = w.toLowerCase(); return k && part.has(l) ? l : l[0].toUpperCase() + l.slice(1); });
+  return [...t.slice(i), ...ap].join(" ");
+}
+const slug = nombre => norm(nombre).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/* los tres atletas con más medallas (oro, plata, bronce) entre las filas individuales que cumplen los filtros */
+function pintarPodio(ind) {
+  const por = new Map();
+  ind.forEach(r => {
+    const n = parseInt(r.posicion_final, 10);
+    if (!(n >= 1 && n <= 3) || !r.atleta) return;
+    const a = por.get(r.atleta) || { nombre: r.atleta, m: [0, 0, 0], ctx: new Map() };
+    a.m[n - 1]++;
+    const c = [r.division, r.categoria].filter(Boolean).join(" · ");
+    a.ctx.set(c, (a.ctx.get(c) || 0) + 1);
+    por.set(r.atleta, a);
+  });
+  const top = [...por.values()].sort((a, b) => b.m[0] - a.m[0] || b.m[1] - a.m[1] || b.m[2] - a.m[2] || texto(a.nombre, b.nombre)).slice(0, 3);
+  const f = state.f, ambito = [f.anio, f.div, f.cat, f.gen].filter(Boolean).join(" · ") || "todas las competiciones desde 2021";
+  const sec = $("podio"); sec.replaceChildren();
+  const h2 = document.createElement("h2"); h2.textContent = "Medallistas destacados"; sec.appendChild(h2);
+  const sub = document.createElement("p"); sub.className = "ambito"; sub.textContent = ambito; sec.appendChild(sub);
+  if (!top.length) { const p = document.createElement("p"); p.className = "ambito"; p.textContent = "Sin medallas individuales con estos filtros."; sec.appendChild(p); return; }
+  const grid = document.createElement("div"); grid.className = "podio-grid";
+  top.forEach((a, k) => {
+    const card = document.createElement("div"); card.className = "medallista";
+    const foto = document.createElement("div"); foto.className = "foto";
+    const ini = nombreBonito(a.nombre).split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+    const avatar = () => { foto.replaceChildren(); foto.textContent = ini; };
+    const img = new Image(); img.alt = nombreBonito(a.nombre); img.loading = "lazy"; img.src = "fotos/" + slug(a.nombre) + ".jpg";
+    img.addEventListener("error", avatar); foto.appendChild(img);
+    const txt = document.createElement("div");
+    const n = document.createElement("div"); n.className = "nombre"; n.textContent = `${k + 1}. ${nombreBonito(a.nombre)}`;
+    const m = document.createElement("div"); m.textContent = `🥇 ${a.m[0]} · 🥈 ${a.m[1]} · 🥉 ${a.m[2]}`;
+    const c = document.createElement("div"); c.className = "ctx";
+    c.textContent = [...a.ctx.entries()].sort((x, y) => y[1] - x[1])[0][0];
+    txt.append(n, m, c); card.append(foto, txt); grid.appendChild(card);
+  });
+  sec.appendChild(grid);
 }
 
 function pintarResumen() {
@@ -297,10 +361,11 @@ function pintarResumen() {
     const b2 = document.createElement("div"); b2.className = "l"; b2.textContent = l;
     d.append(a, b2); return d;
   }));
+  pintarPodio(ind);
 }
 
 function cambiarPestana(tab) {
-  state.tab = tab; state.sortKey = null; state.sortDir = 1;
+  state.tab = tab; state.sortKey = null; state.sortDir = 1; state.pag = 0;
   document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
   reconstruirFiltros(); pintarTabla();
 }
@@ -336,12 +401,13 @@ async function iniciar() {
 
 if (new URLSearchParams(location.search).has("embed")) document.body.classList.add("embed");
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => cambiarPestana(b.dataset.tab)));
-[["f-q", "q"], ["f-anio", "anio"], ["f-ambito", "ambito"], ["f-comp", "comp"], ["f-div", "div"], ["f-cat", "cat"], ["f-gen", "gen"]].forEach(([id, k]) =>
-  $(id).addEventListener(id === "f-q" ? "input" : "change", e => { state.f[k] = e.target.value; pintarTabla(); }));
+[["f-q", "q"], ["f-anio", "anio"], ["f-ambito", "ambito"], ["f-div", "div"], ["f-cat", "cat"], ["f-gen", "gen"]].forEach(([id, k]) =>
+  $(id).addEventListener(id === "f-q" ? "input" : "change", e => { state.f[k] = e.target.value; state.pag = 0; pintarTabla(); }));
+$("f-tam").addEventListener("change", e => { state.tam = +e.target.value; state.pag = 0; pintarTabla(); });
 $("f-reset").addEventListener("click", () => {
   $("f-q").value = ""; state.f.q = "";
-  ["f-anio", "f-ambito", "f-comp", "f-div", "f-cat", "f-gen"].forEach(id => { $(id).value = ""; });
-  Object.assign(state.f, { anio: "", ambito: "", comp: "", div: "", cat: "", gen: "" }); pintarTabla();
+  ["f-anio", "f-ambito", "f-div", "f-cat", "f-gen"].forEach(id => { $(id).value = ""; });
+  Object.assign(state.f, { anio: "", ambito: "", div: "", cat: "", gen: "" }); state.pag = 0; pintarTabla();
 });
 iniciar();
 </script>

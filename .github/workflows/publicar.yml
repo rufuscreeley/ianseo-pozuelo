@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - "index.html"
+      - "*.png"
+      - "*.jpg"
+      - "fotos/**"
       - ".github/workflows/publicar.yml"
   workflow_run:
     workflows: ["Actualizar resultados Ianseo"]
@@ -29,6 +32,8 @@ jobs:
         run: |
           mkdir _site
           cp index.html _site/
+          cp *.png *.jpg _site/ 2>/dev/null || true
+          cp -r fotos _site/fotos 2>/dev/null || true
           cp -r data _site/data
           rm -f _site/data/state.json
       - uses: actions/upload-pages-artifact@v5
