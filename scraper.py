@@ -40,8 +40,8 @@ MIN_AUTONOMICO = 1  # en equipos por comunidades autónomas (código de 3 letras
 DATA = Path("data")
 COMP_CSV, STATE = DATA / "competiciones.csv", DATA / "state.json"
 NAC_CSV, REG_CSV = DATA / "resultados_nacionales.csv", DATA / "resultados_regionales.csv"
-VERSION_DATOS = "4"
-VERSION_COMPATIBLE = "3"  # sus filas buenas no hace falta volver a descargarlas; solo las dudosas  # súbela para que la próxima ejecución vuelva a descargar todas las competiciones
+VERSION_DATOS = "5"
+VERSIONES_COMPATIBLES = {"3", "4"}  # sus filas buenas no hace falta volver a descargarlas; solo las dudosas  # súbela para que la próxima ejecución vuelva a descargar todas las competiciones
 RES_COLS = ["toId", "competicion", "fecha_inicio", "fecha_fin", "lugar", "codigo_pagina", "tipo", "evento",
             "division", "categoria", "genero", "puntos_clasificacion",
             "posicion_final", "atleta", "club_codigo", "club", "equipo_codigo", "equipo", "miembros",
@@ -64,7 +64,7 @@ PAGINAS_BASE = ("IF", "TF", "IC")
 CELDA_CLUB = re.compile(r"^(\S+) - (\S.*)$")                # "2138 - Cde Arqueros De Pozuelo"
 DETALLE = re.compile(r"[\w.]\s*:\s*\d")                        # "18m-1: 258 , 18m-2: 232"
 PUNTOS_RONDA = re.compile(r"(\d+)\s*/\s*(\d+)")              # "284/ 1" = puntos / posición en la ronda
-DIVISIONES = r"Arco Instintivo|Recurvo|Compuesto|Desnudo|Tradicional|Longbow|Instintivo|Barebow"
+DIVISIONES = r"Long bow|Recurvo|Recurve|Compuesto|Compound|Desnudo|Barebow|Tradicional|Traditional|Longbow|Instintivo|Instinctive"
 
 S = requests.Session()
 S.headers.update(HEADERS)
@@ -388,12 +388,15 @@ def puntuaciones(resto):
 
 def dividir(seccion):
     """'Recurvo - Plus 50 Hombre' -> ('Recurvo', 'Plus 50 Hombre');
-    'Equipo Recurvo Hombre 1º división' -> ('Recurvo', 'Hombre 1º división')."""
+    'Equipo Recurvo Hombre 1º división' -> ('Recurvo', 'Hombre 1º división'); 'Arco Desnudo Mujer' -> ('Desnudo', 'Mujer')."""
     if " - " in seccion:
         d, _, c = seccion.partition(" - ")
         return d, c
-    m = re.match(rf"^(?:Equipo\s+)?({DIVISIONES})\s+(.*)$", seccion, re.IGNORECASE)
-    return (m.group(1), m.group(2)) if m else ("", seccion)
+    m = re.search(rf"\b({DIVISIONES})\b", seccion, re.IGNORECASE)
+    if not m:
+        return "", seccion
+    resto = re.sub(r"\b(?:Equipo|Arco)\b", " ", seccion[: m.start()] + " " + seccion[m.end():], flags=re.IGNORECASE)
+    return m.group(1), re.sub(r"\s+", " ", resto).strip()
 
 
 def _plano(t):
@@ -458,8 +461,9 @@ def normalizar_categoria(cat, es_equipo=False):
     for nombre, patron in EDADES:
         if re.search(patron, plano):
             return nombre
-    resto = re.sub(r"\b(?:hombres?|mujer(?:es)?|mixto|masculino|femenino|calificacion)\b", " ", plano).strip()
-    return "Senior" if plano.strip() and not resto else ""
+    if not plano.strip() or re.search(r":|\d\s*m\b|flechas", plano):  # vacío o restos de distancias/puntos
+        return ""
+    return "Senior"  # sin edad indicada: clasificación absoluta
 
 
 def limpiar_fila(f):
@@ -551,7 +555,12 @@ def procesar(tid, nombre, fp_anterior, todas, debug=False):
                 nombres.add(campos["atleta"])
                 if not CLUB_RE.search(" ".join(celdas)):  # clasificación por comunidades: el club sale del listado de inscritos
                     campos["club_codigo"], campos["club"] = "2138", CLUB_NOMBRE
-            division, categoria = dividir(seccion or evento)
+            if codigo.startswith(("IF", "TF")):
+                division, categoria = dividir(evento)
+                if not division and seccion:
+                    division, categoria = dividir(seccion)
+            else:
+                division, categoria = dividir(seccion or evento)
             clave = (campos["equipo_codigo"], campos["equipo"]) if es_equipo else campos["atleta"]
             fila = {
                 "toId": tid, "competicion": nombre, "codigo_pagina": codigo,
@@ -609,7 +618,7 @@ def main():
     antiguas = (hoy - timedelta(days=DIAS_REVISION)).isoformat()
     dudosas = {r["toId"] for r in nac + reg if fila_dudosa(r)}
     for tid, est in state.items():  # filas correctas de la versión anterior: se dan por buenas sin descargar de nuevo
-        if isinstance(est, dict) and est.get("v") == VERSION_COMPATIBLE and tid not in dudosas:
+        if isinstance(est, dict) and est.get("v") in VERSIONES_COMPATIBLES and tid not in dudosas:
             est["v"] = VERSION_DATOS
     if dudosas:
         print(f"{len(dudosas)} competiciones con filas dudosas se vuelven a descargar")
