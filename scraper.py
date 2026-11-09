@@ -40,8 +40,8 @@ MIN_AUTONOMICO = 1  # en equipos por comunidades autónomas (código de 3 letras
 DATA = Path("data")
 COMP_CSV, STATE = DATA / "competiciones.csv", DATA / "state.json"
 NAC_CSV, REG_CSV = DATA / "resultados_nacionales.csv", DATA / "resultados_regionales.csv"
-VERSION_DATOS = "7"
-VERSIONES_COMPATIBLES = set()  # esta versión corrige la búsqueda de páginas: hay que volver a abrir todas  # sus filas buenas no hace falta volver a descargarlas; solo las dudosas  # súbela para que la próxima ejecución vuelva a descargar todas las competiciones
+VERSION_DATOS = "8"
+VERSIONES_COMPATIBLES = set()  # la detección de fuentes incompletas requiere revisar de nuevo los datos existentes
 RES_COLS = ["toId", "competicion", "fecha_inicio", "fecha_fin", "lugar", "codigo_pagina", "tipo", "evento",
             "division", "categoria", "genero", "puntos_clasificacion",
             "posicion_final", "atleta", "club_codigo", "club", "equipo_codigo", "equipo", "miembros",
@@ -79,6 +79,8 @@ def get(url):
                 time.sleep(PAUSE)
                 return r.text
             print(f"  HTTP {r.status_code}: {url}", file=sys.stderr)
+            if r.status_code == 404:
+                return None
         except requests.RequestException as e:
             print(f"  error: {e}", file=sys.stderr)
         time.sleep(5 * (intento + 1))
@@ -270,7 +272,7 @@ def listar_competiciones(debug=False):
 
 def paginas_resultados(tid, soup, url, todas):
     """Páginas de resultados enlazadas en Details.php. El enlace de texto apunta al .php y el icono al .pdf: se usa el
-    .php (si solo hay PDF, se toma su gemelo .php) y el texto del enlace como nombre de la prueba."""
+    .php y el texto del enlace como nombre de la prueba. Si solo existe PDF, se conserva como fuente incompleta."""
     por_codigo = {}
     for a in soup.find_all("a", href=True):
         href = urljoin(url, a["href"])
@@ -282,10 +284,12 @@ def paginas_resultados(tid, soup, url, todas):
             continue
         texto = a.get_text(" ", strip=True)
         if codigo not in por_codigo:
-            por_codigo[codigo] = [codigo, texto, re.sub(r"\.(?:php|pdf)(\?.*)?$", ".php", href)]
+            por_codigo[codigo] = [codigo, texto, href if re.search(r"\.php(?:\?|$)", href) else None]
         elif texto and not por_codigo[codigo][1]:
             por_codigo[codigo][1] = texto
-    return [tuple(v) for v in por_codigo.values()]
+        if re.search(r"\.php(?:\?|$)", href):
+            por_codigo[codigo][2] = href
+    return [(*v, v[2] is None) for v in por_codigo.values()]
 
 
 def norm(t):
@@ -516,6 +520,17 @@ def _firma(n):
     return ap_p, sig
 
 
+_ALIAS_NOMBRES = {
+    _plano("CASTROSEIROS Mª Eugenia"): "CASTROSEIROS BRIONGOS Mª Eugenia",
+    _plano("CASTROSEIROS BRIONGO Mº Eugenia"): "CASTROSEIROS BRIONGOS Mª Eugenia",
+    _plano("CASTROSEIROS BRIONGOS Mª Eugenia"): "CASTROSEIROS BRIONGOS Mª Eugenia",
+}
+
+
+def _nombre_canonico(n):
+    return _ALIAS_NOMBRES.get(_plano(norm(n)), norm(n))
+
+
 def _compatibles(a, b):
     """Mismo primer apellido, segundo apellido igual si ambos lo tienen, y el nombre de pila de uno contenido en el del otro."""
     (ap1, p1), (ap2, p2) = a, b
@@ -528,10 +543,10 @@ def _compatibles(a, b):
 
 def agrupar_nombres(cuenta):
     """cuenta: {nombre: veces}. Devuelve ({variante: nombre unificado}, [grupos ambiguos que no se unifican])."""
-    nombres = [norm(n) for n in cuenta if norm(n)]
+    nombres = list(dict.fromkeys(_nombre_canonico(n) for n in cuenta if norm(n)))
     veces = collections.Counter()
     for n, c in cuenta.items():
-        veces[norm(n)] += c
+        veces[_nombre_canonico(n)] += c
     firmas = {n: _firma(n) for n in nombres}
     padre = {n: n for n in nombres}
 
@@ -571,6 +586,8 @@ def agrupar_nombres(cuenta):
         final = " ".join(ap + pila) if ap and pila else max(miembros, key=lambda n: veces[n])
         for n in miembros:
             mapa[n] = final
+    mapa.update({_nombre_canonico(n): _nombre_canonico(n) for n in cuenta})
+    mapa.update({norm(n): _nombre_canonico(n) for n in cuenta})
     return mapa, ambiguos
 
 
@@ -590,12 +607,12 @@ def procesar(tid, nombre, fp_anterior, todas, debug=False):
     url = f"{BASE}Details.php?toId={tid}"
     html = get(url)
     if not html:
-        return None, None
+        return None, None, False
     soup = BeautifulSoup(html, "lxml")
     # huella: todos los enlaces a TourData (los PDF llevan ?time=... y cambian al actualizarse)
     huella = hashlib.md5((VERSION_DATOS + "|" + "|".join(sorted(a["href"] for a in soup.find_all("a", href=True) if "TourData" in a["href"]))).encode()).hexdigest()
     if huella == fp_anterior and not debug:
-        return huella, None
+        return huella, None, True
     img = soup.select_one('img[src*="Header/topleft"]')
     if img and img.get("alt") and not nombre:
         nombre = norm(img["alt"])
@@ -609,8 +626,13 @@ def procesar(tid, nombre, fp_anterior, todas, debug=False):
     if debug:
         print(f"  Páginas de resultados en Details.php: {[p[0] for p in todas_pag] or 'ninguna'}; "
               f"se descargan: {[p[0] for p in paginas] or 'ninguna'}")
-    previas = {p[0]: p for p in todas_pag if p[0].startswith(("IQ", "TQ"))}  # clasificación previa (IQRM, TQRM2...)
+    previas = {p[0]: p for p in todas_pag if p[0].startswith(("IQ", "TQ")) and not p[3]}
     cache_q = {}
+    incompleta = any(p[3] for p in paginas)
+    if incompleta:
+        pdfs = ", ".join(p[0] for p in paginas if p[3])
+        print(f"  Fuente PDF sin versión HTML ({pdfs}); competición {tid} incompleta, se conservarán sus datos previos.",
+              file=sys.stderr)
     enc = set()  # atletas del club según el listado de inscritos (ENC.php), solo en pruebas con clasificación final IF*/TF*
     if any(p[0].startswith(("IF", "TF")) for p in paginas):
         enlace = next((re.sub(r"\.pdf(\?.*)?$", ".php", urljoin(url, a["href"])) for a in soup.find_all("a", href=True)
@@ -642,12 +664,17 @@ def procesar(tid, nombre, fp_anterior, todas, debug=False):
 
     paginas.sort(key=lambda p: p[0].startswith("T"))  # primero las individuales
     nombres = set(enc)
-    for codigo, evento, href in paginas:
+    for codigo, evento, href, solo_pdf in paginas:
+        if solo_pdf:
+            continue
         es_equipo = codigo.startswith("T")
         if es_equipo and not nombres:
             continue  # sin atletas individuales del club no puede haber equipos del club
         h = get(href)
         if not h:
+            incompleta = True
+            print(f"  Fuente de resultados no disponible: {codigo} ({href}); competición {tid} incompleta.",
+                  file=sys.stderr)
             continue
         if debug:
             (Path("debug") / tid / f"{codigo}.html").write_text(h, encoding="utf-8")
@@ -678,7 +705,9 @@ def procesar(tid, nombre, fp_anterior, todas, debug=False):
             fila.update(campos)
             fila.update(puntuaciones(resto))
             filas.append(fila)
-    return huella, filas
+    if incompleta:
+        return None, filas, False
+    return huella, filas, True
 
 
 def leer_csv(path):
@@ -719,6 +748,7 @@ def main():
     nac, reg = leer_csv(NAC_CSV), leer_csv(REG_CSV)
     previas = {r["toId"]: r for r in leer_csv(COMP_CSV)}
     revisadas = set()
+    incompletas = set()
     hoy = date.today()
     antiguas = (hoy - timedelta(days=DIAS_REVISION)).isoformat()
     dudosas = {r["toId"] for r in nac + reg if fila_dudosa(r)}
@@ -761,9 +791,11 @@ def main():
         if (not args.debug and est.get("h") and est.get("v") == VERSION_DATOS and est.get("a") == c.get("actualizado", "")
                 and c.get("fecha_fin") and c["fecha_fin"] < antiguas):
             continue  # competición terminada hace tiempo y sin cambios en el listado
-        huella, filas = procesar(tid, c["competicion"], est.get("h"), args.todas, bool(args.debug))
-        if huella is None:
-            continue  # fallo de red: se reintentará en la siguiente ejecución
+        huella, filas, completa = procesar(tid, c["competicion"], est.get("h"), args.todas, bool(args.debug))
+        if not completa:
+            state.pop(tid, None)  # ni conservar un estado antiguo como vigente ni impedir el reintento
+            incompletas.add(tid)
+            continue  # conserva las filas anteriores de esta competición y reintenta en la próxima ejecución
         revisadas.add(tid)
         if filas is not None:
             es_nac = lambda f: f["codigo_pagina"].startswith(("IF", "TF"))
@@ -793,7 +825,12 @@ def main():
         return
     guardar()
     restantes = [t for t in comps if t not in state]
+    if incompletas:
+        print(f"{len(incompletas)} competiciones incompletas; sus datos anteriores se conservaron y se reintentarán: "
+              f"{', '.join(sorted(incompletas))}", file=sys.stderr)
     print("Terminado." if not restantes else f"Quedan {len(restantes)} competiciones sin descargar: vuelve a ejecutarlo para continuar.")
+    if incompletas:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

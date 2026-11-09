@@ -5,6 +5,9 @@ on:
   workflow_dispatch:          # también se puede lanzar a mano
 permissions:
   contents: write
+concurrency:
+  group: actualizar-resultados-ianseo
+  cancel-in-progress: false
 jobs:
   actualizar:
     runs-on: ubuntu-latest
@@ -16,12 +19,52 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: python scraper.py
+      - name: Ejecutar scraper
+        id: scraper
+        run: python scraper.py
+        continue-on-error: true
       - name: Guardar cambios
+        id: guardar
         run: |
           # la fecha se guarda siempre: la web la muestra y el repositorio no queda inactivo
           echo "{\"actualizado\": \"$(date -u +%Y-%m-%d)\"}" > data/meta.json
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
           git add data/
-          git diff --cached --quiet || (git commit -m "Actualización de datos" && git push)
+          if git diff --cached --quiet; then
+            echo "No hay cambios de datos para guardar."
+            exit 0
+          fi
+          git commit -m "Actualización de datos"
+          git format-patch --binary -1 --stdout HEAD > "$RUNNER_TEMP/actualizacion.patch"
+          for intento in 1 2 3; do
+            if ! git fetch origin main; then
+              echo "recovery_patch=true" >> "$GITHUB_OUTPUT"
+              echo "::error::No se pudo consultar main; el parche con los cambios locales se conservará como artefacto."
+              exit 1
+            fi
+            if ! git rebase origin/main; then
+              echo "recovery_patch=true" >> "$GITHUB_OUTPUT"
+              echo "::error::No se pudieron integrar los datos con main sin conflictos; el parche con los cambios locales se conservará como artefacto."
+              exit 1
+            fi
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push rechazado en intento ${intento}; se volverá a integrar el estado actual de main."
+          done
+          echo "recovery_patch=true" >> "$GITHUB_OUTPUT"
+          echo "::error::No se pudo publicar el commit tras 3 intentos; el parche con los cambios locales se conservará como artefacto. No se ha usado force-push."
+          exit 1
+      - name: Conservar parche para recuperación
+        if: always() && steps.guardar.outputs.recovery_patch == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: datos-ianseo-no-integrados-${{ github.run_id }}
+          path: ${{ runner.temp }}/actualizacion.patch
+          if-no-files-found: error
+      - name: Confirmar scraping completo
+        if: steps.scraper.outcome != 'success'
+        run: |
+          echo "::error::El scraper detectó errores o fuentes incompletas. Los datos válidos se guardaron, pero esta actualización no se considera completa."
+          exit 1
