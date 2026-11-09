@@ -12,7 +12,7 @@ Uso:
                                     # y las filas encontradas en debug/filas_<toId>.csv
   python scraper.py --todas         # incluye también clasificación (IQ/TQ) y cuadros (IB/TB)
 """
-import argparse, csv, difflib, hashlib, json, os, re, sys, time, unicodedata
+import argparse, collections, csv, difflib, hashlib, json, os, re, sys, time, unicodedata
 from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
@@ -40,8 +40,8 @@ MIN_AUTONOMICO = 1  # en equipos por comunidades autónomas (código de 3 letras
 DATA = Path("data")
 COMP_CSV, STATE = DATA / "competiciones.csv", DATA / "state.json"
 NAC_CSV, REG_CSV = DATA / "resultados_nacionales.csv", DATA / "resultados_regionales.csv"
-VERSION_DATOS = "6"
-VERSIONES_COMPATIBLES = {"3", "4", "5"}  # sus filas buenas no hace falta volver a descargarlas; solo las dudosas  # súbela para que la próxima ejecución vuelva a descargar todas las competiciones
+VERSION_DATOS = "7"
+VERSIONES_COMPATIBLES = set()  # esta versión corrige la búsqueda de páginas: hay que volver a abrir todas  # sus filas buenas no hace falta volver a descargarlas; solo las dudosas  # súbela para que la próxima ejecución vuelva a descargar todas las competiciones
 RES_COLS = ["toId", "competicion", "fecha_inicio", "fecha_fin", "lugar", "codigo_pagina", "tipo", "evento",
             "division", "categoria", "genero", "puntos_clasificacion",
             "posicion_final", "atleta", "club_codigo", "club", "equipo_codigo", "equipo", "miembros",
@@ -59,7 +59,7 @@ ANIO = 2026  # el listado muestra las fechas sin año
 MESES = {m: i for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}
 RE_FECHA = r"(\d{1,2}\s+[A-Za-z]{3}\s*-\s*\d{1,2}\s+[A-Za-z]{3}|\d{1,2}\s*-\s*\d{1,2}\s+[A-Za-z]{3}|\d{1,2}\s+[A-Za-z]{3})"
 RE_ACT = r"(\d{1,2}\s+[A-Za-z]{3}\s+\d{2}:\d{2})"
-RESULT_PAGE = re.compile(r"/((?:I|T)[A-Z0-9]{1,4})\.php$")  # IC, IFRM, TFRM2, IQRM...
+RESULT_PAGE = re.compile(r"/((?:I|T)[A-Z0-9]{1,6})\.(?:php|pdf)(?:\?|$)")  # IC, IFRM, TFRM2, IQRM...
 PAGINAS_BASE = ("IF", "TF", "IC")
 CODIGO_DIVISION = {"R": "Recurvo", "C": "Compuesto", "B": "Desnudo", "L": "Longbow"}  # 3.ª letra de IFRM, TFCW, IFBU...
 CELDA_CLUB = re.compile(r"^(\S+) - (\S.*)$")                # "2138 - Cde Arqueros De Pozuelo"
@@ -269,22 +269,28 @@ def listar_competiciones(debug=False):
 
 
 def paginas_resultados(tid, soup, url, todas):
-    vistas, out = set(), []
+    """Páginas de resultados enlazadas en Details.php. El enlace de texto apunta al .php y el icono al .pdf: se usa el
+    .php (si solo hay PDF, se toma su gemelo .php) y el texto del enlace como nombre de la prueba."""
+    por_codigo = {}
     for a in soup.find_all("a", href=True):
         href = urljoin(url, a["href"])
         m = RESULT_PAGE.search(href)
-        if not m or f"/{tid}/" not in href or href in vistas:
+        if not m or f"/{tid}/" not in href:
             continue
         codigo = m.group(1)
         if not todas and not codigo.startswith(PAGINAS_BASE):
             continue
-        vistas.add(href)
-        out.append((codigo, a.get_text(" ", strip=True), href))
-    return out
+        texto = a.get_text(" ", strip=True)
+        if codigo not in por_codigo:
+            por_codigo[codigo] = [codigo, texto, re.sub(r"\.(?:php|pdf)(\?.*)?$", ".php", href)]
+        elif texto and not por_codigo[codigo][1]:
+            por_codigo[codigo][1] = texto
+    return [tuple(v) for v in por_codigo.values()]
 
 
 def norm(t):
     t = re.sub(r"&nbsp;?", " ", t)  # Ianseo deja "&nbsp" literal en algunas celdas
+    t = re.sub(r"\s*\bLic\.?\s*\d+\b", " ", t, flags=re.IGNORECASE)  # número de licencia pegado al nombre
     t = re.sub(r"\s+", " ", t).strip()
     return t.replace(" ; ", "; ")  # separador de los componentes de un equipo (<br>)
 
@@ -489,6 +495,97 @@ def fila_dudosa(f):
     return f.get("tipo") == "Individual" and (not f.get("division") or not f.get("categoria"))
 
 
+# ---- Unificación de nombres: "IBAÑEZ DEL SAZ Juan José" = "IBÁÑEZ DEL SAZ Juan Jose"; "CASTROSEIROS Mª Eugenia" = "CASTROSEIROS BRIONGOS Eugenia"
+_PARTICULAS_APELLIDO = {"de", "del", "la", "las", "los", "y", "i", "da", "do", "dos", "das", "van", "von"}
+_MARIA = ("mª", "ma", "maria", "mari")
+
+
+def _partir_nombre(n):
+    """'CASTROSEIROS BRIONGOS Mª Eugenia' -> (['CASTROSEIROS', 'BRIONGOS'], ['Mª', 'Eugenia']): apellidos = palabras en mayúsculas del principio."""
+    t, i = norm(n).split(), 0
+    while i < len(t) and t[i] == t[i].upper() and t[i] != t[i].lower() and not re.search(r"[ªº]", t[i]):
+        i += 1
+    return t[:i], t[i:]
+
+
+def _firma(n):
+    ap, pila = _partir_nombre(n)
+    ap_p = [_plano(x) for x in ap if _plano(x) not in _PARTICULAS_APELLIDO]
+    pila_p = [_plano(x) for x in pila]
+    sig = [x for x in pila_p if x not in _MARIA] or pila_p
+    return ap_p, sig
+
+
+def _compatibles(a, b):
+    """Mismo primer apellido, segundo apellido igual si ambos lo tienen, y el nombre de pila de uno contenido en el del otro."""
+    (ap1, p1), (ap2, p2) = a, b
+    if not ap1 or not ap2 or not p1 or not p2 or ap1[0] != ap2[0]:
+        return False
+    if len(ap1) > 1 and len(ap2) > 1 and ap1[1:] != ap2[1:]:
+        return False
+    return set(p1) <= set(p2) or set(p2) <= set(p1)
+
+
+def agrupar_nombres(cuenta):
+    """cuenta: {nombre: veces}. Devuelve ({variante: nombre unificado}, [grupos ambiguos que no se unifican])."""
+    nombres = [norm(n) for n in cuenta if norm(n)]
+    veces = collections.Counter()
+    for n, c in cuenta.items():
+        veces[norm(n)] += c
+    firmas = {n: _firma(n) for n in nombres}
+    padre = {n: n for n in nombres}
+
+    def raiz(x):
+        while padre[x] != x:
+            padre[x] = padre[padre[x]]
+            x = padre[x]
+        return x
+
+    completos = [n for n in nombres if len(firmas[n][0]) >= 2]
+    incompletos = [n for n in nombres if len(firmas[n][0]) < 2]
+    for k, a in enumerate(completos):  # primero los que tienen los dos apellidos
+        for b in completos[k + 1:]:
+            if _compatibles(firmas[a], firmas[b]):
+                padre[raiz(a)] = raiz(b)
+    ambiguos = []
+    for n in incompletos:  # el que tiene un solo apellido solo se une si hay un único candidato
+        cand = {raiz(c) for c in completos if _compatibles(firmas[n], firmas[c])}
+        if len(cand) == 1:
+            padre[raiz(n)] = cand.pop()
+        elif len(cand) > 1:
+            ambiguos.append((n, sorted(cand)))
+    for k, a in enumerate(incompletos):  # y los incompletos entre sí
+        for b in incompletos[k + 1:]:
+            if raiz(a) != raiz(b) and _compatibles(firmas[a], firmas[b]) and not any(a == x[0] or b == x[0] for x in ambiguos):
+                padre[raiz(a)] = raiz(b)
+    grupos = collections.defaultdict(list)
+    for n in nombres:
+        grupos[raiz(n)].append(n)
+    mapa = {}
+    for miembros in grupos.values():
+        # apellidos más completos y, a igualdad, con más tildes y más frecuentes; igual para el nombre de pila
+        ap = max((_partir_nombre(n)[0] for n in miembros), key=lambda a: (len([x for x in a if _plano(x) not in _PARTICULAS_APELLIDO]), sum(ord(ch) > 127 for ch in " ".join(a)),
+                                                                        sum(veces[n] for n in miembros if _partir_nombre(n)[0] == a)))
+        pila = max((_partir_nombre(n)[1] for n in miembros), key=lambda p: (len(p), sum(ord(ch) > 127 for ch in " ".join(p)),
+                                                                          sum(veces[n] for n in miembros if _partir_nombre(n)[1] == p)))
+        final = " ".join(ap + pila) if ap and pila else max(miembros, key=lambda n: veces[n])
+        for n in miembros:
+            mapa[n] = final
+    return mapa, ambiguos
+
+
+def unificar_nombres(nac, reg):
+    """Aplica agrupar_nombres a los atletas (y a los componentes de equipos) de todas las filas."""
+    cuenta = collections.Counter(norm(r["atleta"]) for r in nac + reg if r.get("tipo") == "Individual" and r.get("atleta"))
+    mapa, ambiguos = agrupar_nombres(cuenta)
+    for r in nac + reg:
+        if r.get("atleta"):
+            r["atleta"] = mapa.get(norm(r["atleta"]), norm(r["atleta"]))
+        if r.get("miembros"):
+            r["miembros"] = "; ".join(mapa.get(norm(m), norm(m)) for m in r["miembros"].split(";") if m.strip())
+    return ambiguos
+
+
 def procesar(tid, nombre, fp_anterior, todas, debug=False):
     url = f"{BASE}Details.php?toId={tid}"
     html = get(url)
@@ -516,8 +613,8 @@ def procesar(tid, nombre, fp_anterior, todas, debug=False):
     cache_q = {}
     enc = set()  # atletas del club según el listado de inscritos (ENC.php), solo en pruebas con clasificación final IF*/TF*
     if any(p[0].startswith(("IF", "TF")) for p in paginas):
-        enlace = next((urljoin(url, a["href"]) for a in soup.find_all("a", href=True)
-                       if a["href"].endswith("/ENC.php") and f"/{tid}/" in urljoin(url, a["href"])), None)
+        enlace = next((re.sub(r"\.pdf(\?.*)?$", ".php", urljoin(url, a["href"])) for a in soup.find_all("a", href=True)
+                       if re.search(r"/ENC\.(?:php|pdf)(?:\?|$)", a["href"]) and f"/{tid}/" in urljoin(url, a["href"])), None)
         he = get(enlace) if enlace else None
         if he:
             if debug:
@@ -639,6 +736,8 @@ def main():
             if c:
                 r["fecha_inicio"], r["fecha_fin"], r["lugar"] = c["fecha_inicio"], c["fecha_fin"], c["lugar"]
             limpiar_fila(r)
+        for a in unificar_nombres(nac, reg):
+            print(f"  nombre ambiguo, no se unifica: {a[0]} (podría ser {' o '.join(a[1])})")
         for rows in (nac, reg):  # competiciones de más reciente a más antigua; dentro, por división, categoría y posición
             rows.sort(key=lambda r: (r.get("division", ""), r.get("categoria", ""),
                                      int(r["posicion_final"]) if r.get("posicion_final", "").isdigit() else 10**9))

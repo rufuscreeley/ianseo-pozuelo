@@ -99,7 +99,7 @@
     <div><label for="f-anio">Año</label><select id="f-anio"></select></div>
     <div id="box-ambito"><label for="f-ambito">Ámbito</label><select id="f-ambito"></select></div>
     <div><label for="f-div">División</label><select id="f-div"></select></div>
-    <div><label for="f-cat">Categoría</label><select id="f-cat"></select></div>
+    <div id="box-cat"><label for="f-cat">Categoría</label><select id="f-cat"></select></div>
     <div><label for="f-gen">Género</label><select id="f-gen"></select></div>
     <div class="reset"><button class="reset" id="f-reset" type="button">Limpiar filtros</button></div>
   </section>
@@ -226,6 +226,8 @@ function reconstruirFiltros() {
   opciones($("f-gen"), unicos(r => [r.genero || "", r.genero || ""]).sort((a, b) => texto(a[1], b[1])));
   opciones($("f-ambito"), unicos(r => [r.ambito || "", r.ambito || ""]));
   $("box-ambito").hidden = state.tab !== "individual";
+  $("box-cat").hidden = state.tab !== "individual";
+  if (state.tab !== "individual") $("f-cat").value = "";
   state.f.div = $("f-div").value; state.f.cat = $("f-cat").value;
   state.f.ambito = $("f-ambito").value; state.f.gen = $("f-gen").value; state.f.anio = $("f-anio").value;
 }
