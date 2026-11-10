@@ -139,6 +139,7 @@
   </div>
 </footer>
 
+<script src="name-normalization.js"></script>
 <script>
 "use strict";
 const COLS = {
@@ -185,6 +186,7 @@ function fmtFecha(ini, fin) {
   return `${a.d} ${MESES_ES[a.m]} – ${b.d} ${MESES_ES[b.m]} ${b.y}`;
 }
 const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const claveAliasNombre = nombre => norm(nombre).replace(/\blic\.?\s*\d+\b/gi, "").replace(/[^a-z0-9]/g, "");
 const numero = v => { const n = parseFloat(v); return isNaN(n) ? Infinity : n; };
 const cmp = (a, b) => (a === b ? 0 : a < b ? -1 : 1);
 const texto = (a, b) => (a || "").localeCompare(b || "", "es");
@@ -378,17 +380,45 @@ async function cargar(url) {
     return r.ok ? parseCSV(await r.text()) : null;
   } catch (e) { return null; }
 }
+async function cargarAliasAtletas() {
+  try {
+    const r = await fetch("data/alias_atletas.json", { cache: "no-store" });
+    return r.ok ? await r.json() : null;
+  } catch (e) { return null; }
+}
 async function iniciar() {
-  const [nac, reg] = await Promise.all([cargar("data/resultados_nacionales.csv"), cargar("data/resultados_regionales.csv")]);
+  const [nac, reg, gruposAlias] = await Promise.all([
+    cargar("data/resultados_nacionales.csv"), cargar("data/resultados_regionales.csv"), cargarAliasAtletas()
+  ]);
+  if (gruposAlias === null) {
+    const td = $("tabla").tBodies[0].insertRow().insertCell();
+    td.className = "msg error"; td.textContent = "No se han podido cargar las equivalencias de nombres.";
+    return;
+  }
   if (nac === null && reg === null) {
     const td = $("tabla").tBodies[0].insertRow().insertCell();
     td.className = "msg error"; td.textContent = "No se han podido cargar los datos. Inténtalo de nuevo más tarde.";
     return;
   }
+  const cuenta = new Map();
+  (nac || []).concat(reg || []).forEach(r => {
+    if (r.tipo !== "Individual" || !r.atleta) return;
+    const nombre = agruparNombres.normalizar(r.atleta);
+    cuenta.set(nombre, (cuenta.get(nombre) || 0) + 1);
+  });
+  const { mapa } = agruparNombres.agruparNombres(cuenta, gruposAlias);
+  const alias = new Map();
+  gruposAlias.forEach(g => [g.canonical, ...g.aliases].forEach(n => alias.set(claveAliasNombre(n), g.canonical)));
+  const aplicarAlias = nombre => mapa.get(agruparNombres.normalizar(nombre)) ||
+    alias.get(claveAliasNombre(nombre)) || agruparNombres.normalizar(nombre);
   (nac || []).forEach(r => r.ambito = "Nacional");
   (reg || []).forEach(r => r.ambito = "Regional");
   const todas = [...(nac || []), ...(reg || [])];
-  todas.forEach(r => { r.puntos = r.puntos_totales || r.puntos_clasificacion || ""; });
+  todas.forEach(r => {
+    r.puntos = r.puntos_totales || r.puntos_clasificacion || "";
+    if (r.atleta) r.atleta = aplicarAlias(r.atleta);
+    if (r.miembros) r.miembros = r.miembros.split(";").map(aplicarAlias).join("; ");
+  });
   DATA.individual = todas.filter(r => r.tipo === "Individual");
   DATA.equipos = todas.filter(r => r.tipo === "Equipos");
   reconstruirFiltros(); pintarTabla();

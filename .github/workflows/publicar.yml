@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - "index.html"
+      - "name-normalization.js"
+      - "data/alias_atletas.json"
       - "*.png"
       - "*.jpg"
       - "fotos/**"
@@ -32,6 +34,7 @@ jobs:
         run: |
           mkdir _site
           cp index.html _site/
+          cp name-normalization.js _site/
           cp *.png *.jpg _site/ 2>/dev/null || true
           cp -r fotos _site/fotos 2>/dev/null || true
           cp -r data _site/data
