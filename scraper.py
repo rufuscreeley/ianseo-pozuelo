@@ -44,7 +44,7 @@ DATA = Path("data")
 COMP_CSV, STATE = DATA / "competiciones.csv", DATA / "state.json"
 NAC_CSV, REG_CSV = DATA / "resultados_nacionales.csv", DATA / "resultados_regionales.csv"
 ALIAS_ATLETAS = json.loads((Path(__file__).parent / DATA / "alias_atletas.json").read_text(encoding="utf-8"))
-VERSION_DATOS = "8"
+VERSION_DATOS = "9"
 VERSIONES_COMPATIBLES = set()  # la detección de fuentes incompletas requiere revisar de nuevo los datos existentes
 RES_COLS = ["toId", "competicion", "fecha_inicio", "fecha_fin", "lugar", "codigo_pagina", "tipo", "evento",
             "division", "categoria", "genero", "puntos_clasificacion",
@@ -497,9 +497,13 @@ def genero_de(texto):
 def normalizar_categoria(cat, es_equipo=False):
     """Individual: solo Sub 15 / Sub 18 / Sub 21 / Senior / Veterano / Novel (sin género ni distancias ni puntos);
     'Hombre' o 'Mujer' a secas (clasificación absoluta) = Senior; si no se reconoce, queda vacío.
-    Equipos: se quitan 'Equipo' y el género y se unifica '1º/1ª división'."""
+    Equipos: se normalizan las etiquetas específicas de Run Archery y 3D, y se quitan 'Equipo' y el género."""
     plano = re.sub(r"\[.*?\]", " ", _plano(cat or ""))  # fuera "[Después de 12 flechas]"
     if es_equipo:
+        if re.search(r"\brun[ -]?archery\b", plano) and re.search(r"\bteam\s+sprint\b", plano):
+            return "Team sprint"
+        if re.search(r"\b3d\b", plano) and re.search(r"\bdivisiones\s*x\s*4\b", plano):
+            return "Equipos x 4"
         for nombre, patron in EDADES:
             if re.search(patron, plano):
                 return nombre

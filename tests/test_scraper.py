@@ -57,5 +57,23 @@ class AgruparNombresTests(unittest.TestCase):
         self.assertEqual(ambiguos, [])
 
 
+class NormalizarCategoriaTests(unittest.TestCase):
+    def test_categoria_de_equipo_run_archery_se_normaliza_a_team_sprint(self):
+        categoria = "Run archery " * 25 + "sptx team sprint"
+        self.assertEqual(scraper.normalizar_categoria(categoria, es_equipo=True), "Team sprint")
+
+    def test_categoria_repetitiva_de_equipo_3d_se_normaliza_a_equipos_x4(self):
+        categoria = "3d " * 28 + "divisiones x4"
+        self.assertEqual(scraper.normalizar_categoria(categoria, es_equipo=True), "Equipos x 4")
+
+    def test_no_cambia_categorias_individuales_ni_otras_categorias_de_equipo(self):
+        run_archery = "Run archery " * 25 + "sptx team sprint"
+        equipos_3d = "3d " * 28 + "divisiones x4"
+        self.assertEqual(scraper.normalizar_categoria(run_archery), "Senior")
+        self.assertEqual(scraper.normalizar_categoria(equipos_3d), "Senior")
+        self.assertEqual(scraper.normalizar_categoria("Sub 21", es_equipo=True), "Sub 21")
+        self.assertEqual(scraper.normalizar_categoria("1º división", es_equipo=True), "1ª división")
+
+
 if __name__ == "__main__":
     unittest.main()
