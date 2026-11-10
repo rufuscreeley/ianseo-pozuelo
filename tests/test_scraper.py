@@ -1,0 +1,61 @@
+import collections
+import unittest
+
+import scraper
+
+
+class AgruparNombresTests(unittest.TestCase):
+    def test_unifica_las_variantes_explicitas_de_castroseiros(self):
+        canonico = "CASTROSEIROS BRIONGOS Mª Eugenia"
+        cuenta = collections.Counter({
+            "CASTROSEIROS Mª Eugenia": 1,
+            "CASTROSEIROS BRIONGO Mº Eugenia": 1,
+            "CASTROSEIROS BRIONGOS María Eugenia": 1,
+            "CASTROSEIROS M.EUGENIA": 1,
+            "CASTROSEIROS Mª Eugenia Lic 87087": 1,
+            canonico: 3,
+        })
+
+        mapa, ambiguos = scraper.agrupar_nombres(cuenta)
+
+        self.assertEqual(set(mapa), {scraper.norm(n) for n in cuenta})
+        self.assertEqual(set(mapa.values()), {canonico})
+        self.assertEqual(ambiguos, [])
+
+    def test_unifica_nombre_invertido_y_abreviaturas_de_otros_atletas(self):
+        variantes = {
+            "HERNANDO MORENO Juan Ignacio",
+            "JUAN IGNACIO Hernando Moreno",
+        }
+
+        mapa, ambiguos = scraper.agrupar_nombres(collections.Counter(variantes))
+
+        self.assertEqual(set(mapa.values()), {"HERNANDO MORENO Juan Ignacio"})
+        self.assertEqual(ambiguos, [])
+
+    def test_unifica_variantes_de_m_eugenia_con_nombre_legal_completo(self):
+        variantes = {
+            "CASTROSEIROS BRIONGOS Mª Eugenia",
+            "CASTROSEIROS BRIONGOS M. EUGENIA",
+            "CASTROSEIROS M.EUGENIA",
+        }
+
+        mapa, ambiguos = scraper.agrupar_nombres(collections.Counter(variantes))
+
+        self.assertEqual(set(mapa.values()), {"CASTROSEIROS BRIONGOS Mª Eugenia"})
+        self.assertEqual(ambiguos, [])
+
+    def test_no_fusiona_apellidos_completos_distintos(self):
+        nombres = (
+            "CASTROSEIROS PEREZ Mª Eugenia",
+            "CASTROSEIROS LOPEZ Mª Eugenia",
+        )
+
+        mapa, ambiguos = scraper.agrupar_nombres(collections.Counter(nombres))
+
+        self.assertEqual({mapa[nombre] for nombre in nombres}, set(nombres))
+        self.assertEqual(ambiguos, [])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,5 +1,6 @@
 """Los tres atletas con más medallas individuales (puestos 1 a 3), en total y por año, con el nombre de la foto que usa la web."""
 import csv, collections, re, unicodedata
+import scraper
 
 def slug(nombre):
     t = "".join(c for c in unicodedata.normalize("NFD", nombre) if unicodedata.category(c) != "Mn").lower()
@@ -12,8 +13,10 @@ for fichero in ("data/resultados_nacionales.csv", "data/resultados_regionales.cs
 
 def top3(rows):
     medallas = collections.defaultdict(lambda: [0, 0, 0])
+    cuenta = collections.Counter(r["atleta"] for r in rows if r["atleta"])
+    mapa, _ = scraper.agrupar_nombres(cuenta)
     for r in rows:
-        medallas[r["atleta"]][int(r["posicion_final"]) - 1] += 1
+        medallas[mapa.get(scraper.norm(r["atleta"]), r["atleta"])][int(r["posicion_final"]) - 1] += 1
     return sorted(medallas.items(), key=lambda x: (-x[1][0], -x[1][1], -x[1][2], x[0]))[:3]
 
 def mostrar(titulo, rows):

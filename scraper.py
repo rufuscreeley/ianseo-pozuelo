@@ -43,6 +43,7 @@ MIN_AUTONOMICO = 1  # en equipos por comunidades autónomas (código de 3 letras
 DATA = Path("data")
 COMP_CSV, STATE = DATA / "competiciones.csv", DATA / "state.json"
 NAC_CSV, REG_CSV = DATA / "resultados_nacionales.csv", DATA / "resultados_regionales.csv"
+ALIAS_ATLETAS = json.loads((Path(__file__).parent / DATA / "alias_atletas.json").read_text(encoding="utf-8"))
 VERSION_DATOS = "8"
 VERSIONES_COMPATIBLES = set()  # la detección de fuentes incompletas requiere revisar de nuevo los datos existentes
 RES_COLS = ["toId", "competicion", "fecha_inicio", "fecha_fin", "lugar", "codigo_pagina", "tipo", "evento",
@@ -541,6 +542,10 @@ _PARTICULAS_APELLIDO = {"de", "del", "la", "las", "los", "y", "i", "da", "do", "
 _MARIA = ("mª", "ma", "maria", "mari")
 
 
+def _clave_alias_nombre(n):
+    return re.sub(r"[^a-z0-9]", "", _plano(norm(n)))
+
+
 def _partir_nombre(n):
     """'CASTROSEIROS BRIONGOS Mª Eugenia' -> (['CASTROSEIROS', 'BRIONGOS'], ['Mª', 'Eugenia']): apellidos = palabras en mayúsculas del principio."""
     t, i = norm(n).split(), 0
@@ -557,17 +562,6 @@ def _firma(n):
     return ap_p, sig
 
 
-_ALIAS_NOMBRES = {
-    _plano("CASTROSEIROS Mª Eugenia"): "CASTROSEIROS BRIONGOS Mª Eugenia",
-    _plano("CASTROSEIROS BRIONGO Mº Eugenia"): "CASTROSEIROS BRIONGOS Mª Eugenia",
-    _plano("CASTROSEIROS BRIONGOS Mª Eugenia"): "CASTROSEIROS BRIONGOS Mª Eugenia",
-}
-
-
-def _nombre_canonico(n):
-    return _ALIAS_NOMBRES.get(_plano(norm(n)), norm(n))
-
-
 def _compatibles(a, b):
     """Mismo primer apellido, segundo apellido igual si ambos lo tienen, y el nombre de pila de uno contenido en el del otro."""
     (ap1, p1), (ap2, p2) = a, b
@@ -580,10 +574,10 @@ def _compatibles(a, b):
 
 def agrupar_nombres(cuenta):
     """cuenta: {nombre: veces}. Devuelve ({variante: nombre unificado}, [grupos ambiguos que no se unifican])."""
-    nombres = list(dict.fromkeys(_nombre_canonico(n) for n in cuenta if norm(n)))
+    nombres = list(dict.fromkeys(norm(n) for n in cuenta if norm(n)))
     veces = collections.Counter()
     for n, c in cuenta.items():
-        veces[_nombre_canonico(n)] += c
+        veces[norm(n)] += c
     firmas = {n: _firma(n) for n in nombres}
     padre = {n: n for n in nombres}
 
@@ -592,6 +586,18 @@ def agrupar_nombres(cuenta):
             padre[x] = padre[padre[x]]
             x = padre[x]
         return x
+
+    grupos_alias = {}
+    for grupo in ALIAS_ATLETAS:
+        for n in [grupo["canonical"], *grupo["aliases"]]:
+            grupos_alias[_clave_alias_nombre(n)] = grupo
+    for grupo in ALIAS_ATLETAS:
+        presentes = [n for n in nombres if _clave_alias_nombre(n) in {
+            _clave_alias_nombre(grupo["canonical"]),
+            *(_clave_alias_nombre(alias) for alias in grupo["aliases"]),
+        }]
+        for n in presentes[1:]:
+            padre[raiz(n)] = raiz(presentes[0])
 
     completos = [n for n in nombres if len(firmas[n][0]) >= 2]
     incompletos = [n for n in nombres if len(firmas[n][0]) < 2]
@@ -620,11 +626,13 @@ def agrupar_nombres(cuenta):
                                                                         sum(veces[n] for n in miembros if _partir_nombre(n)[0] == a)))
         pila = max((_partir_nombre(n)[1] for n in miembros), key=lambda p: (len(p), sum(ord(ch) > 127 for ch in " ".join(p)),
                                                                           sum(veces[n] for n in miembros if _partir_nombre(n)[1] == p)))
-        final = " ".join(ap + pila) if ap and pila else max(miembros, key=lambda n: veces[n])
+        canonicos = {grupos_alias[_clave_alias_nombre(n)]["canonical"] for n in miembros
+                     if _clave_alias_nombre(n) in grupos_alias}
+        final = next(iter(canonicos)) if len(canonicos) == 1 else (
+            " ".join(ap + pila) if ap and pila else max(miembros, key=lambda n: veces[n])
+        )
         for n in miembros:
             mapa[n] = final
-    mapa.update({_nombre_canonico(n): _nombre_canonico(n) for n in cuenta})
-    mapa.update({norm(n): _nombre_canonico(n) for n in cuenta})
     return mapa, ambiguos
 
 
