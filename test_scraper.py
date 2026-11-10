@@ -35,7 +35,10 @@ class ResultSourceTests(unittest.TestCase):
             '<a href="/Tournament/20436/IC.pdf?time=1">Clasificación</a>', "lxml"
         )
         pages = scraper.paginas_resultados("20436", soup, scraper.BASE, False)
-        self.assertEqual(pages, [("IC", "Clasificación", None, True)])
+        self.assertEqual(
+            pages,
+            [("IC", "Clasificación", "https://www.ianseo.net/Tournament/20436/IC.pdf?time=1", True)],
+        )
 
     def test_html_link_is_preferred_when_pdf_and_php_are_available(self):
         soup = BeautifulSoup(
@@ -48,14 +51,57 @@ class ResultSourceTests(unittest.TestCase):
             pages, [("IC", "Clasificación", "https://www.ianseo.net/Tournament/20436/IC.php", False)]
         )
 
-    def test_pdf_only_competition_is_incomplete_and_not_fetched_as_php(self):
+    def test_pdf_only_ic_cover_is_not_mistaken_for_missing_results(self):
         details = '<a href="/Tournament/20436/IC.pdf?time=1">Clasificación</a>'
-        with patch.object(scraper, "get", return_value=details) as get:
+        with patch.object(scraper, "get", return_value=details) as get, patch.object(
+            scraper, "pdf_tiene_resultados", return_value=False
+        ) as pdf_check:
+            fingerprint, rows, complete = scraper.procesar("20436", "Prueba", None, False)
+        self.assertIsNotNone(fingerprint)
+        self.assertEqual(rows, [])
+        self.assertTrue(complete)
+        get.assert_called_once_with("https://www.ianseo.net/Details.php?toId=20436")
+        pdf_check.assert_called_once_with("https://www.ianseo.net/Tournament/20436/IC.pdf?time=1")
+
+    def test_pdf_only_ic_with_results_remains_incomplete(self):
+        details = '<a href="/Tournament/20436/IC.pdf?time=1">Clasificación</a>'
+        with patch.object(scraper, "get", return_value=details), patch.object(
+            scraper, "pdf_tiene_resultados", return_value=True
+        ):
             fingerprint, rows, complete = scraper.procesar("20436", "Prueba", None, False)
         self.assertIsNone(fingerprint)
         self.assertEqual(rows, [])
         self.assertFalse(complete)
-        get.assert_called_once_with("https://www.ianseo.net/Details.php?toId=20436")
+
+    def test_pdf_with_unrecognized_content_remains_incomplete(self):
+        details = '<a href="/Tournament/20436/IC.pdf?time=1">Clasificación</a>'
+        with patch.object(scraper, "get", return_value=details), patch.object(
+            scraper, "pdf_tiene_resultados", return_value=None
+        ):
+            fingerprint, rows, complete = scraper.procesar("20436", "Prueba", None, False)
+        self.assertIsNone(fingerprint)
+        self.assertEqual(rows, [])
+        self.assertFalse(complete)
+
+    def test_pdf_result_detection_distinguishes_empty_cover_from_table(self):
+        response = SimpleNamespace(status_code=200, content=b"%PDF-test")
+        pages = [SimpleNamespace(extract_text=lambda: "Pos. Atleta Recurvo - Hombre")]
+        with patch.object(scraper.S, "get", return_value=response), patch.object(
+            scraper, "PdfReader", return_value=SimpleNamespace(pages=pages)
+        ), patch.object(scraper.time, "sleep"):
+            self.assertTrue(scraper.pdf_tiene_resultados("https://example.invalid/results.pdf"))
+
+        pages = [SimpleNamespace(extract_text=lambda: "Clasificación por Clase y División - Individual")]
+        with patch.object(scraper.S, "get", return_value=response), patch.object(
+            scraper, "PdfReader", return_value=SimpleNamespace(pages=pages)
+        ), patch.object(scraper.time, "sleep"):
+            self.assertFalse(scraper.pdf_tiene_resultados("https://example.invalid/empty.pdf"))
+
+        pages = [SimpleNamespace(extract_text=lambda: "Tournament title")]
+        with patch.object(scraper.S, "get", return_value=response), patch.object(
+            scraper, "PdfReader", return_value=SimpleNamespace(pages=pages)
+        ), patch.object(scraper.time, "sleep"):
+            self.assertIsNone(scraper.pdf_tiene_resultados("https://example.invalid/unknown.pdf"))
 
     def test_missing_html_result_page_marks_competition_incomplete(self):
         details = '<a href="/Tournament/20436/IFRM.php">Recurve</a>'

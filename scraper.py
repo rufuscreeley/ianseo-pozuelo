@@ -15,11 +15,14 @@ Uso:
 import argparse, collections, csv, difflib, hashlib, json, os, re, sys, time, unicodedata
 from collections import Counter
 from datetime import date, timedelta
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 BASE = "https://www.ianseo.net/"
 # Competiciones de España completadas (comptime=2) de cada año, desde PRIMER_ANIO hasta el año en curso
@@ -84,6 +87,38 @@ def get(url):
         except requests.RequestException as e:
             print(f"  error: {e}", file=sys.stderr)
         time.sleep(5 * (intento + 1))
+    return None
+
+
+def pdf_tiene_resultados(url):
+    """Comprueba si un PDF IC contiene una tabla de clasificación, no solo la portada vacía de Ianseo."""
+    for intento in range(3):
+        try:
+            response = S.get(url, timeout=30)
+            if response.status_code == 404:
+                print(f"  HTTP 404: {url}", file=sys.stderr)
+                return None
+            if response.status_code != 200:
+                print(f"  HTTP {response.status_code}: {url}", file=sys.stderr)
+                time.sleep(5 * (intento + 1))
+                continue
+            time.sleep(PAUSE)
+            if not response.content.startswith(b"%PDF-"):
+                print(f"  La fuente no devolvió un PDF válido: {url}", file=sys.stderr)
+                return None
+            reader = PdfReader(BytesIO(response.content), strict=False)
+            texto = "\n".join(page.extract_text() or "" for page in reader.pages)
+            if re.search(r"(?im)^\s*Pos\.?\s+Atleta\b", texto):
+                return True
+            if re.search(r"(?i)clasificaci[oó]n\s+por\s+clase\s+y\s+divisi[oó]n\s*-\s*individual", texto):
+                return False
+            return None
+        except requests.RequestException as e:
+            print(f"  error: {e}", file=sys.stderr)
+            time.sleep(5 * (intento + 1))
+        except PdfReadError as e:
+            print(f"  PDF ilegible: {e}: {url}", file=sys.stderr)
+            return None
     return None
 
 
@@ -272,7 +307,7 @@ def listar_competiciones(debug=False):
 
 def paginas_resultados(tid, soup, url, todas):
     """Páginas de resultados enlazadas en Details.php. El enlace de texto apunta al .php y el icono al .pdf: se usa el
-    .php y el texto del enlace como nombre de la prueba. Si solo existe PDF, se conserva como fuente incompleta."""
+    .php y el texto del enlace como nombre de la prueba. Si solo existe PDF, se conserva su URL."""
     por_codigo = {}
     for a in soup.find_all("a", href=True):
         href = urljoin(url, a["href"])
@@ -284,12 +319,14 @@ def paginas_resultados(tid, soup, url, todas):
             continue
         texto = a.get_text(" ", strip=True)
         if codigo not in por_codigo:
-            por_codigo[codigo] = [codigo, texto, href if re.search(r"\.php(?:\?|$)", href) else None]
+            es_html = bool(re.search(r"\.php(?:\?|$)", href))
+            por_codigo[codigo] = [codigo, texto, href, not es_html]
         elif texto and not por_codigo[codigo][1]:
             por_codigo[codigo][1] = texto
         if re.search(r"\.php(?:\?|$)", href):
             por_codigo[codigo][2] = href
-    return [(*v, v[2] is None) for v in por_codigo.values()]
+            por_codigo[codigo][3] = False
+    return [tuple(v) for v in por_codigo.values()]
 
 
 def norm(t):
@@ -628,11 +665,18 @@ def procesar(tid, nombre, fp_anterior, todas, debug=False):
               f"se descargan: {[p[0] for p in paginas] or 'ninguna'}")
     previas = {p[0]: p for p in todas_pag if p[0].startswith(("IQ", "TQ")) and not p[3]}
     cache_q = {}
-    incompleta = any(p[3] for p in paginas)
-    if incompleta:
-        pdfs = ", ".join(p[0] for p in paginas if p[3])
-        print(f"  Fuente PDF sin versión HTML ({pdfs}); competición {tid} incompleta, se conservarán sus datos previos.",
-              file=sys.stderr)
+    incompleta = False
+    for codigo, _, href, solo_pdf in paginas:
+        if not solo_pdf:
+            continue
+        if codigo == "IC":
+            tiene_resultados = pdf_tiene_resultados(href)
+            if tiene_resultados is False:
+                print(f"  IC PDF sin filas de resultados ({href}); competición {tid} completa.", file=sys.stderr)
+                continue
+        incompleta = True
+        print(f"  Fuente PDF sin HTML procesable ({codigo}, {href}); competición {tid} incompleta, "
+              "se conservarán sus datos previos.", file=sys.stderr)
     enc = set()  # atletas del club según el listado de inscritos (ENC.php), solo en pruebas con clasificación final IF*/TF*
     if any(p[0].startswith(("IF", "TF")) for p in paginas):
         enlace = next((re.sub(r"\.pdf(\?.*)?$", ".php", urljoin(url, a["href"])) for a in soup.find_all("a", href=True)
