@@ -266,7 +266,18 @@ function celda(tr, col, r) {
     const n = parseInt(v, 10);
     td.textContent = (n >= 1 && n <= 3 ? MEDALLAS[n - 1] + " " : "") + v;
   } else if (col.k === "competicion") {
-    const n = document.createElement("div"); n.textContent = v; td.appendChild(n);
+    const n = document.createElement("div");
+    let url = null;
+    try {
+      const parsed = new URL(r.url);
+      if (parsed.protocol === "https:" && parsed.hostname === "www.ianseo.net") url = parsed.href;
+    } catch {}
+    if (v && url) {
+      const a = document.createElement("a");
+      a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = v;
+      n.appendChild(a);
+    } else n.textContent = v;
+    td.appendChild(n);
     const sub = [fmtFecha(r.fecha_inicio, r.fecha_fin), r.lugar].filter(Boolean).join(" · ");
     if (sub) { const d = document.createElement("div"); d.className = "sub"; d.textContent = sub; td.appendChild(d); }
   } else if (col.k === "ambito") {
