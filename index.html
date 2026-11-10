@@ -73,6 +73,25 @@
   .medallista .foto img { width: 100%; height: 100%; object-fit: cover; }
   .medallista .nombre { font-weight: 700; }
   .medallista .ctx { color: var(--muted); font-size: .85rem; }
+  .medallista .nombre button, .atleta-link { border: 0; padding: 0; background: none; color: var(--link); font: inherit; font-weight: 700; text-align: left; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; cursor: pointer; }
+  .medallista .nombre button:hover, .atleta-link:hover { text-decoration-color: currentColor; }
+  .ficha { width: min(680px, calc(100% - 24px)); max-height: min(760px, calc(100% - 24px)); padding: 0; border: 1px solid var(--border); border-radius: 8px; color: var(--fg); background: var(--card); box-shadow: 0 16px 48px #0003; }
+  .ficha::backdrop { background: #10122b88; }
+  .ficha-contenido { padding: 22px; }
+  .ficha-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .ficha h2 { margin: 0; color: var(--accent); font-size: 1.5rem; font-weight: 700; }
+  .ficha .ambito { margin: 2px 0 16px; color: var(--muted); font-size: .9rem; }
+  .ficha-cerrar { flex: none; border: 1px solid var(--border); border-radius: 4px; background: var(--card); color: var(--fg); padding: 4px 10px; font: inherit; cursor: pointer; }
+  .ficha-total { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+  .ficha-total > div { padding: 8px; border: 1px solid var(--border); border-radius: 4px; text-align: center; }
+  .ficha-total strong { display: block; color: var(--accent); font-size: 1.25rem; }
+  .ficha-total span { color: var(--muted); font-size: .8rem; }
+  .ficha h3 { margin: 0 0 6px; color: var(--accent); font-size: 1.05rem; }
+  .ficha-tabla { overflow-x: auto; }
+  .ficha-tabla th { position: static; cursor: default; }
+  .ficha-tabla th:hover { text-decoration: none; }
+  .ficha-tabla td.num, .ficha-tabla th.num { text-align: center; }
+  .ficha-pie { margin: 10px 0 0; color: var(--muted); font-size: .82rem; }
   footer { color: var(--muted); font-size: .85rem; padding: 24px 0 40px; border-top: 1px solid var(--border); margin-top: 32px; }
   footer a { color: inherit; }
 </style>
@@ -111,6 +130,10 @@
     <label class="tam">Resultados por página
       <select id="f-tam"><option value="5" selected>5</option><option value="20">20</option><option value="50">50</option><option value="100">100</option><option value="0">Todos</option></select></label>
   </div>
+
+  <dialog class="ficha" id="ficha-atleta" aria-labelledby="ficha-nombre">
+    <div class="ficha-contenido" id="ficha-contenido"></div>
+  </dialog>
 
   <section class="sobre" aria-labelledby="acerca">
     <h2 id="acerca">Acerca de este proyecto</h2>
@@ -248,6 +271,9 @@ function celda(tr, col, r) {
     if (sub) { const d = document.createElement("div"); d.className = "sub"; d.textContent = sub; td.appendChild(d); }
   } else if (col.k === "ambito") {
     const s = document.createElement("span"); s.className = "chip"; s.textContent = v; td.appendChild(s);
+  } else if (col.k === "atleta" && state.tab === "individual" && v) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "atleta-link"; b.textContent = v;
+    b.addEventListener("click", () => abrirFichaAtleta(v)); td.appendChild(b);
   } else if (!v) { td.textContent = "—"; td.classList.add("muted"); }
   else td.textContent = v;
 }
@@ -311,6 +337,69 @@ function nombreBonito(nombre) {
 }
 const slug = nombre => norm(nombre).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+function filasFichaAtleta(nombre) {
+  const f = state.f;
+  return DATA.individual.filter(r => r.atleta === nombre &&
+    (!f.anio || (r.fecha_inicio || "").slice(0, 4) === f.anio) &&
+    (!f.div || r.division === f.div) &&
+    (!f.gen || r.genero === f.gen));
+}
+
+function abrirFichaAtleta(nombre) {
+  const rows = filasFichaAtleta(nombre);
+  const medallas = [0, 0, 0];
+  const porCategoria = new Map();
+  rows.forEach(r => {
+    const posicion = parseInt(r.posicion_final, 10);
+    if (!(posicion >= 1 && posicion <= 3)) return;
+    const categoria = r.categoria || "Sin categoría";
+    const clave = JSON.stringify([r.division || "Sin división", categoria]);
+    const datos = porCategoria.get(clave) || { division: r.division || "Sin división", categoria, medallas: [0, 0, 0] };
+    datos.medallas[posicion - 1]++;
+    medallas[posicion - 1]++;
+    porCategoria.set(clave, datos);
+  });
+
+  const dialogo = $("ficha-atleta"), contenido = $("ficha-contenido");
+  contenido.replaceChildren();
+  const cabecera = document.createElement("div"); cabecera.className = "ficha-cabecera";
+  const titulo = document.createElement("h2"); titulo.id = "ficha-nombre"; titulo.textContent = nombreBonito(nombre);
+  const cerrar = document.createElement("button"); cerrar.type = "button"; cerrar.className = "ficha-cerrar";
+  cerrar.textContent = "Cerrar"; cerrar.setAttribute("aria-label", "Cerrar ficha del deportista");
+  cerrar.addEventListener("click", () => dialogo.close());
+  cabecera.append(titulo, cerrar);
+  const f = state.f, filtros = [f.anio, f.div, f.gen].filter(Boolean);
+  const subtitulo = document.createElement("p"); subtitulo.className = "ambito";
+  subtitulo.textContent = `${rows.length} participaciones${filtros.length ? ` · ${filtros.join(" · ")}` : " · todos los años, divisiones y géneros"} · todas las categorías`;
+  const total = document.createElement("div"); total.className = "ficha-total";
+  [["🥇", medallas[0], "Oros"], ["🥈", medallas[1], "Platas"], ["🥉", medallas[2], "Bronces"],
+   ["", medallas.reduce((s, n) => s + n, 0), "Medallas"]].forEach(([emoji, cantidad, etiqueta]) => {
+    const item = document.createElement("div"), valor = document.createElement("strong"), texto = document.createElement("span");
+    valor.textContent = `${emoji}${emoji ? " " : ""}${cantidad}`; texto.textContent = etiqueta; item.append(valor, texto); total.appendChild(item);
+  });
+  const tituloCategorias = document.createElement("h3"); tituloCategorias.textContent = "Medallas por categoría";
+  const envoltorio = document.createElement("div"); envoltorio.className = "table-wrap ficha-tabla";
+  const tabla = document.createElement("table"), thead = tabla.createTHead(), filaCabecera = thead.insertRow();
+  ["División", "Categoría", "🥇", "🥈", "🥉", "Total"].forEach((texto, i) => {
+    const th = document.createElement("th"); th.textContent = texto; if (i > 1) th.className = "num"; filaCabecera.appendChild(th);
+  });
+  const cuerpo = tabla.createTBody();
+  [...porCategoria.values()].sort((a, b) => texto(a.division, b.division) || texto(a.categoria, b.categoria)).forEach(datos => {
+    const fila = cuerpo.insertRow();
+    [datos.division, datos.categoria, ...datos.medallas, datos.medallas.reduce((s, n) => s + n, 0)].forEach((valor, i) => {
+      const celda = fila.insertCell(); celda.textContent = valor; if (i > 1) celda.className = "num";
+    });
+  });
+  if (!porCategoria.size) {
+    const fila = cuerpo.insertRow(), celda = fila.insertCell(); celda.colSpan = 6; celda.className = "msg";
+    celda.textContent = "No hay medallas individuales con estos filtros.";
+  }
+  envoltorio.appendChild(tabla);
+  const pie = document.createElement("p"); pie.className = "ficha-pie"; pie.textContent = "El desglose agrupa las medallas individuales publicadas por división y categoría.";
+  contenido.append(cabecera, subtitulo, total, tituloCategorias, envoltorio, pie);
+  dialogo.showModal();
+}
+
 /* los tres atletas con más medallas (oro, plata, bronce) entre las filas individuales que cumplen los filtros */
 function pintarPodio(ind) {
   const por = new Map();
@@ -338,7 +427,9 @@ function pintarPodio(ind) {
     const img = new Image(); img.alt = nombreBonito(a.nombre); img.loading = "lazy"; img.src = "fotos/" + slug(a.nombre) + ".jpg";
     img.addEventListener("error", avatar); foto.appendChild(img);
     const txt = document.createElement("div");
-    const n = document.createElement("div"); n.className = "nombre"; n.textContent = `${k + 1}. ${nombreBonito(a.nombre)}`;
+    const n = document.createElement("div"); n.className = "nombre";
+    const perfil = document.createElement("button"); perfil.type = "button"; perfil.textContent = `${k + 1}. ${nombreBonito(a.nombre)}`;
+    perfil.addEventListener("click", () => abrirFichaAtleta(a.nombre)); n.appendChild(perfil);
     const m = document.createElement("div"); m.textContent = `🥇 ${a.m[0]} · 🥈 ${a.m[1]} · 🥉 ${a.m[2]}`;
     const c = document.createElement("div"); c.className = "ctx";
     c.textContent = [...a.ctx.entries()].sort((x, y) => y[1] - x[1])[0][0];
