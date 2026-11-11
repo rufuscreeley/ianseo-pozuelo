@@ -502,7 +502,7 @@ def normalizar_categoria(cat, es_equipo=False):
     if es_equipo:
         if re.search(r"\brun[ -]?archery\b", plano) and re.search(r"\bteam\s+sprint\b", plano):
             return "Team sprint"
-        if re.search(r"\b3d\b", plano) and re.search(r"\bdivisiones\s*x\s*4\b", plano):
+        if re.search(r"\b3d\b", plano) and re.search(r"\bdivisiones\b|\bx\s*4\b", plano):
             return "Equipos x 4"
         for nombre, patron in EDADES:
             if re.search(patron, plano):
