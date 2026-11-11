@@ -63,8 +63,14 @@ class NormalizarCategoriaTests(unittest.TestCase):
         self.assertEqual(scraper.normalizar_categoria(categoria, es_equipo=True), "Team sprint")
 
     def test_categoria_repetitiva_de_equipo_3d_se_normaliza_a_equipos_x4(self):
-        categoria = "3d " * 28 + "divisiones x4"
-        self.assertEqual(scraper.normalizar_categoria(categoria, es_equipo=True), "Equipos x 4")
+        categorias = (
+            "3d " * 28 + "divisiones",
+            "3d " * 28 + "divisiones x4",
+            "3d " * 28 + "x 4",
+        )
+        for categoria in categorias:
+            with self.subTest(categoria=categoria[-20:]):
+                self.assertEqual(scraper.normalizar_categoria(categoria, es_equipo=True), "Equipos x 4")
 
     def test_no_cambia_categorias_individuales_ni_otras_categorias_de_equipo(self):
         run_archery = "Run archery " * 25 + "sptx team sprint"
