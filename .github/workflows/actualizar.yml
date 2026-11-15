@@ -1,7 +1,7 @@
 name: Actualizar resultados Ianseo
 on:
   schedule:
-    - cron: "0 5 * * 1"      # todos los lunes, 05:00 UTC
+    - cron: "0 5 * * 3"      # todos los miércoles, 05:00 UTC
   workflow_dispatch:          # también se puede lanzar a mano
 permissions:
   contents: write
