@@ -76,9 +76,9 @@ Los scripts auxiliares `nombres.py`, `medallistas.py` y `valores.py` imprimen, r
 
 ## Actualización y publicación automáticas
 
-El workflow **Actualizar resultados Ianseo** (`.github/workflows/actualizar.yml`) se ejecuta los días 1 y 15 de cada mes a las 05:00 UTC. También puede iniciarse manualmente desde **GitHub → Actions → Actualizar resultados Ianseo → Run workflow**. Cuando hay cambios, guarda los CSV, el estado y la fecha de actualización en `data/` y los publica en `main`.
+El workflow **Actualizar resultados Ianseo** (`.github/workflows/actualizar.yml`) se ejecuta cada lunes a las 05:00 UTC. También puede iniciarse manualmente desde **GitHub → Actions → Actualizar resultados Ianseo → Run workflow**. Cuando hay cambios, guarda los CSV, el estado y la fecha de actualización en `data/` y los publica en `main`.
 
-El workflow **Publicar web** (`.github/workflows/publicar.yml`) despliega el sitio con GitHub Pages después de una actualización correcta, cuando cambian los archivos del sitio en `main`, o al iniciarlo manualmente. Si el scraper detecta fuentes inaccesibles o incompletas, conserva los datos anteriores de esas competiciones y guarda los resultados válidos; aun así, marca la ejecución como fallida, por lo que esa ejecución no activa el despliegue posterior.
+El workflow **Publicar web** (`.github/workflows/publicar.yml`) despliega el sitio con GitHub Pages después de cada ejecución del actualizador, cuando cambian los archivos del sitio en `main`, o al iniciarlo manualmente. Si el scraper detecta fuentes inaccesibles o incompletas, conserva los datos anteriores de esas competiciones y guarda los resultados válidos; aunque marca la ejecución como fallida, el despliegue posterior publica los datos válidos que sí se guardaron.
 
 Para diagnosticar fuentes, el workflow manual **Depurar Ianseo** ejecuta el modo `--debug` para dos competiciones de muestra y conserva el directorio `debug/` como artefacto descargable.
 
