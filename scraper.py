@@ -62,7 +62,7 @@ COLS_COMP = ["toId", "codigo", "competicion", "organizador", "lugar", "lugar_ori
 ANIO = 2026  # el listado muestra las fechas sin año
 MESES = {m: i for i, m in enumerate("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)}
 RE_FECHA = r"(\d{1,2}\s+[A-Za-z]{3}\s*-\s*\d{1,2}\s+[A-Za-z]{3}|\d{1,2}\s*-\s*\d{1,2}\s+[A-Za-z]{3}|\d{1,2}\s+[A-Za-z]{3})"
-RE_ACT = r"(\d{1,2}\s+[A-Za-z]{3}\s+\d{2}:\d{2})"
+RE_ACT = r"((?:\d{1,2}\s+[A-Za-z]{3}|Today|Yesterday)\s+\d{2}:\d{2})"
 RESULT_PAGE = re.compile(r"/((?:I|T)[A-Z0-9]{1,6})\.(?:php|pdf)(?:\?|$)")  # IC, IFRM, TFRM2, IQRM...
 PAGINAS_BASE = ("IF", "TF", "IC")
 CODIGO_DIVISION = {"R": "Recurvo", "C": "Compuesto", "B": "Desnudo", "L": "Longbow"}  # 3.ª letra de IFRM, TFCW, IFBU...
@@ -251,9 +251,12 @@ def fila_competicion(tid, tr, anio=ANIO):
     if k is not None:
         c["fecha"], c["actualizado"] = " ".join(textos[k]), " ".join(textos[k + 1])
         c["lugar"] = " ".join(textos[k - 1])
-        c["organizador"] = " / ".join(textos[k - 2])
+        idx_organizador = k - 2
+        while idx_organizador >= 0 and not textos[idx_organizador] and celdas[idx_organizador].find("img"):
+            idx_organizador -= 1
+        c["organizador"] = " / ".join(textos[idx_organizador]) if idx_organizador >= 0 else ""
         izq = []
-        for cell in textos[: k - 2]:  # código y nombre (el nombre se repite para la vista móvil)
+        for cell in textos[:idx_organizador]:  # código y nombre (el nombre se repite para la vista móvil)
             izq += [t for t in cell if t not in izq]
         if izq:
             c["codigo"], c["competicion"] = izq[0], " ".join(izq[1:])
