@@ -2,6 +2,33 @@ import collections
 import unittest
 
 import scraper
+from bs4 import BeautifulSoup
+
+
+class FilaCompeticionTests(unittest.TestCase):
+    def test_extrae_fechas_con_actualizacion_relativa_y_columna_de_bandera(self):
+        nombre = "2ª PRUEBA LIGA FMTA DE SALA 2026-27 - XXVII TROFEO SAN SEBASTIÁN"
+        for actualizado in ("Today 13:39", "Yesterday 18:52"):
+            with self.subTest(actualizado=actualizado):
+                html = f"""
+                <tr>
+                  <td></td><td></td><td>RAGP2627</td><td>{nombre}</td><td>{nombre}</td><td></td>
+                  <td>Arqueros 10 de Galapagar</td><td><img alt="ESP"></td>
+                  <td>Polideportivo Municipal de Galapagar</td><td>14 Nov</td><td>{actualizado}</td>
+                </tr>
+                """
+                fila = BeautifulSoup(html, "lxml").find("tr")
+
+                competicion = scraper.fila_competicion("31216", fila, 2026)
+
+                self.assertEqual(competicion["codigo"], "RAGP2627")
+                self.assertEqual(competicion["competicion"], nombre)
+                self.assertEqual(competicion["organizador"], "Arqueros 10 de Galapagar")
+                self.assertEqual(competicion["lugar_original"], "Polideportivo Municipal de Galapagar")
+                self.assertEqual(competicion["fecha"], "14 Nov")
+                self.assertEqual(competicion["fecha_inicio"], "2026-11-14")
+                self.assertEqual(competicion["fecha_fin"], "2026-11-14")
+                self.assertEqual(competicion["actualizado"], actualizado)
 
 
 class AgruparNombresTests(unittest.TestCase):
