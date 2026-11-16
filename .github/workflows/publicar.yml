@@ -6,6 +6,8 @@ on:
       - "index.html"
       - "name-normalization.js"
       - "data/alias_atletas.json"
+      - "data/*.csv"
+      - "data/meta.json"
       - "*.png"
       - "*.jpg"
       - "fotos/**"
