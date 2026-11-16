@@ -14,16 +14,18 @@ Los archivos de `data/` son:
 | --- | --- |
 | `resultados_nacionales.csv` | Por defecto, resultados individuales y por equipos de páginas `IF*` y `TF*`, incluidos los puntos de clasificación cuando están disponibles. |
 | `resultados_regionales.csv` | Por defecto, resultados de páginas `IC`, con puntos totales cuando están disponibles. |
-| `competiciones.csv` | Competiciones revisadas, fechas, lugar, enlace a Ianseo y número de filas del club. |
+| `competiciones.csv` | Competiciones con resultados del club, fechas, lugar, enlace a Ianseo y número de filas. |
 | `alias_atletas.json` | Equivalencias explícitas para nombres de atletas. |
 | `meta.json` | Fecha que muestra la web como última actualización. |
-| `state.json` | Huellas y estado de descarga que el scraper utiliza para evitar trabajo repetido y reintentar lo pendiente. |
+| `state.json` | Huellas, metadatos de revisión y estado de descarga que el scraper utiliza para evitar trabajo repetido y reintentar lo pendiente, incluidas las competiciones sin participación del club. |
 
 Los CSV están codificados en UTF-8 y llevan una fila de encabezados. Ambos archivos de resultados incluyen competición, fechas, lugar, tipo, división, categoría, género, posición, atleta o equipo, enlace de origen y fecha de extracción; el CSV nacional contiene `puntos_clasificacion` y el regional, `puntos_totales`. La web muestra los puntos disponibles: en resultados nacionales son los de la ronda de clasificación y en los regionales, los puntos totales. Al usar `--todas`, las filas extraídas de páginas distintas de `IF*` y `TF*` también se guardan en el CSV regional.
 
 Los nombres se normalizan mediante reglas conservadoras y las equivalencias de `alias_atletas.json`. Se agrupan variantes compatibles (por ejemplo, diferencias de tildes, orden o abreviaturas), pero se mantienen separados los apellidos completos distintos; las coincidencias ambiguas no se fusionan automáticamente.
 
 `state.json` se guarda junto con los datos del scraper, pero el workflow de publicación lo excluye del sitio desplegado. Los archivos de diagnóstico se escriben en `debug/`, que está ignorado por Git.
+
+`competiciones.csv` solo incluye competiciones con filas de resultados del club en alguno de los CSV de resultados. El estado de revisión de las competiciones sin participación se conserva en `state.json` para que no se vuelvan a descargar en cada ejecución. Si una fuente está incompleta, se conservan los resultados anteriores y se invalida su huella para reintentarla.
 
 ## Requisitos
 

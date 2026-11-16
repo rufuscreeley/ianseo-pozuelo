@@ -171,7 +171,81 @@ class IncompleteStateTests(unittest.TestCase):
             with nac_csv.open(encoding="utf-8", newline="") as stream:
                 saved_rows = list(csv.DictReader(stream))
             self.assertEqual([row["atleta"] for row in saved_rows], ["Atleta anterior"])
-            self.assertNotIn("20436", json.loads(state_file.read_text(encoding="utf-8")))
+            saved_state = json.loads(state_file.read_text(encoding="utf-8"))
+            self.assertNotIn("h", saved_state["20436"])
+            self.assertNotIn("v", saved_state["20436"])
+            self.assertEqual(saved_state["20436"]["c"]["competicion"], "Prueba")
+            with comp_csv.open(encoding="utf-8", newline="") as stream:
+                self.assertEqual([row["toId"] for row in csv.DictReader(stream)], ["20436"])
+
+
+class CompetitionCsvTests(unittest.TestCase):
+    def test_omits_nonparticipants_and_keeps_cached_review_metadata(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            data = Path(temporary)
+            comp_csv = data / "competiciones.csv"
+            nac_csv = data / "resultados_nacionales.csv"
+            reg_csv = data / "resultados_regionales.csv"
+            state_file = data / "state.json"
+
+            comp = {
+                "toId": "20436", "codigo": "", "competicion": "Sin participación",
+                "organizador": "", "lugar": "Madrid", "lugar_original": "Madrid",
+                "fecha": "1 Jan", "fecha_inicio": "2000-01-01", "fecha_fin": "2000-01-01",
+                "actualizado": "1 Jan 00:00",
+            }
+            old_comp_row = dict(
+                comp, url=f"{scraper.BASE}Details.php?toId=20436", filas_club="0",
+                ultima_revision="2025-01-02",
+            )
+            scraper.escribir_csv(comp_csv, [old_comp_row], scraper.COLS_COMP)
+            scraper.escribir_csv(nac_csv, [], scraper.COLS_NAC)
+            scraper.escribir_csv(reg_csv, [], scraper.COLS_REG)
+            state_file.write_text(json.dumps({
+                "20436": {"h": "cached", "a": comp["actualizado"], "v": scraper.VERSION_DATOS},
+            }), encoding="utf-8")
+
+            participante = dict.fromkeys(scraper.COLS_NAC, "")
+            participante.update(
+                toId="20437", competicion="Con participación", codigo_pagina="IFRM",
+                tipo="Individual", atleta="Atleta Pozuelo", division="Recurvo",
+                categoria="Senior", posicion_final="1",
+            )
+            comp_participante = dict(
+                comp, toId="20437", competicion="Con participación",
+                fecha_inicio="2026-01-01", fecha_fin="2026-01-01",
+            )
+            procesadas = []
+
+            def procesar(tid, *args, **kwargs):
+                procesadas.append(tid)
+                return "new-fingerprint", [participante], True
+
+            with (
+                patch.object(scraper, "DATA", data),
+                patch.object(scraper, "COMP_CSV", comp_csv),
+                patch.object(scraper, "NAC_CSV", nac_csv),
+                patch.object(scraper, "REG_CSV", reg_csv),
+                patch.object(scraper, "STATE", state_file),
+                patch.object(
+                    scraper, "listar_competiciones",
+                    return_value={"20436": comp, "20437": comp_participante},
+                ),
+                patch.object(scraper, "procesar", side_effect=procesar),
+                patch("sys.argv", ["scraper.py"]),
+            ):
+                scraper.main()
+
+            self.assertEqual(procesadas, ["20437"])
+            with comp_csv.open(encoding="utf-8", newline="") as stream:
+                competitions = list(csv.DictReader(stream))
+            self.assertEqual([row["toId"] for row in competitions], ["20437"])
+
+            saved_state = json.loads(state_file.read_text(encoding="utf-8"))
+            self.assertEqual(saved_state["20436"]["h"], "cached")
+            self.assertEqual(saved_state["20436"]["c"]["competicion"], "Sin participación")
+            self.assertEqual(saved_state["20436"]["r"], "2025-01-02")
+            self.assertEqual(saved_state["20437"]["c"]["competicion"], "Con participación")
 
 
 if __name__ == "__main__":
