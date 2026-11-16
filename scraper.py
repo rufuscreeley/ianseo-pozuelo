@@ -783,6 +783,11 @@ def escribir_csv(path, filas, cols):
         w.writerows(filas)
 
 
+def metadata_competicion(c):
+    return {col: c.get(col, "") for col in COLS_COMP
+            if col not in ("url", "filas_club", "ultima_revision")}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--debug", metavar="TOID")
@@ -811,12 +816,22 @@ def main():
     hoy = date.today()
     antiguas = (hoy - timedelta(days=DIAS_REVISION)).isoformat()
     dudosas = {r["toId"] for r in nac + reg if fila_dudosa(r)}
+    for tid, est in list(state.items()):
+        if not isinstance(est, dict):  # formato antiguo: solo la huella
+            est = {"h": est}
+            state[tid] = est
+        previa = previas.get(tid, {})
+        if not est.get("c") and previa:
+            est["c"] = metadata_competicion(previa)
+        if not est.get("r") and previa.get("ultima_revision"):
+            est["r"] = previa["ultima_revision"]
     for tid, est in state.items():  # filas correctas de la versión anterior: se dan por buenas sin descargar de nuevo
         if isinstance(est, dict) and est.get("v") in VERSIONES_COMPATIBLES and tid not in dudosas:
             est["v"] = VERSION_DATOS
     if dudosas:
         print(f"{len(dudosas)} competiciones con filas dudosas se vuelven a descargar")
-    pendientes = [t for t in comps if t not in state]
+    pendientes = [t for t in comps if not isinstance(state.get(t), dict)
+                  or not state[t].get("h") or state[t].get("v") != VERSION_DATOS]
     print(f"{len(comps)} competiciones en los listados, {len(pendientes)} sin descargar todavía")
 
     def guardar():
@@ -832,10 +847,17 @@ def main():
                                      int(r["posicion_final"]) if r.get("posicion_final", "").isdigit() else 10**9))
             rows.sort(key=lambda r: (r.get("fecha_inicio", ""), int(r["toId"])), reverse=True)
         cuenta = Counter(r["toId"] for r in nac + reg)
+        competiciones_con_resultados = []
+        for tid, total in cuenta.items():
+            if not total:
+                continue
+            c = comps.get(tid) or state.get(tid, {}).get("c") or previas.get(tid, {})
+            competiciones_con_resultados.append(dict(
+                c, url=f"{BASE}Details.php?toId={tid}", filas_club=total,
+                ultima_revision=state.get(tid, {}).get("r") or previas.get(tid, {}).get("ultima_revision", ""),
+            ))
         escribir_csv(COMP_CSV, [
-            dict(c, url=f"{BASE}Details.php?toId={t}", filas_club=cuenta.get(t, 0),
-                 ultima_revision=hoy.isoformat() if t in revisadas else previas.get(t, {}).get("ultima_revision", ""))
-            for t, c in comps.items()], COLS_COMP)
+            c for c in competiciones_con_resultados], COLS_COMP)
         escribir_csv(NAC_CSV, nac, COLS_NAC)
         escribir_csv(REG_CSV, reg, COLS_REG)
         STATE.write_text(json.dumps(state, indent=1))
@@ -845,14 +867,16 @@ def main():
             print("Tiempo máximo alcanzado: lo que falta se descargará en la siguiente ejecución.")
             break
         est = state.get(tid) or {}
-        if isinstance(est, str):  # formato antiguo: solo la huella
-            est = {"h": est}
+        est["c"] = metadata_competicion(c)
         if (not args.debug and est.get("h") and est.get("v") == VERSION_DATOS and est.get("a") == c.get("actualizado", "")
                 and c.get("fecha_fin") and c["fecha_fin"] < antiguas):
             continue  # competición terminada hace tiempo y sin cambios en el listado
         huella, filas, completa = procesar(tid, c["competicion"], est.get("h"), args.todas, bool(args.debug))
         if not completa:
-            state.pop(tid, None)  # ni conservar un estado antiguo como vigente ni impedir el reintento
+            est.pop("h", None)  # invalidar el caché, conservando metadatos y revisión para el reintento
+            est.pop("v", None)
+            est.pop("a", None)
+            state[tid] = est
             incompletas.add(tid)
             continue  # conserva las filas anteriores de esta competición y reintenta en la próxima ejecución
         revisadas.add(tid)
@@ -876,14 +900,18 @@ def main():
                 print(f"  [{f['codigo_pagina']}] {f['division']} | {f['categoria']} | pos {f['posicion_final']} | {quien} | {nombre}{pts}")
             escribir_csv(Path("debug") / f"filas_{tid}.csv", filas, RES_COLS)
         if not args.debug:
-            state[tid] = {"h": huella, "a": c.get("actualizado", ""), "v": VERSION_DATOS}
+            state[tid] = {
+                "h": huella, "a": c.get("actualizado", ""), "v": VERSION_DATOS,
+                "c": metadata_competicion(c), "r": hoy.isoformat(),
+            }
             if len(revisadas) % 50 == 0:
                 guardar()  # guardado parcial: si algo se interrumpe no se pierde el avance
 
     if args.debug:
         return
     guardar()
-    restantes = [t for t in comps if t not in state]
+    restantes = [t for t in comps if not isinstance(state.get(t), dict)
+                 or not state[t].get("h") or state[t].get("v") != VERSION_DATOS]
     if incompletas:
         print(f"{len(incompletas)} competiciones incompletas; sus datos anteriores se conservaron y se reintentarán: "
               f"{', '.join(sorted(incompletas))}", file=sys.stderr)
