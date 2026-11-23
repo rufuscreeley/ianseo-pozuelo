@@ -49,6 +49,21 @@ test("year, division and category filters intersect for medal ranking", () => {
     [["ATLETA Dos", [1, 0, 0]], ["ATLETA Tres", [0, 1, 0]], ["ATLETA Uno", [0, 0, 1]]]);
 });
 
+test("ranks athletes by total medals before breaking ties by medal color", () => {
+  const rows = [
+    { atleta: "Oros", posicion_final: "1" },
+    { atleta: "Oros", posicion_final: "1" },
+    { atleta: "Total", posicion_final: "1" },
+    { atleta: "Total", posicion_final: "2" },
+    { atleta: "Total", posicion_final: "2" }
+  ];
+
+  assert.deepEqual(rankingTop3(rows).map(a => [a.nombre, a.m, a.m.reduce((s, n) => s + n, 0)]), [
+    ["Total", [1, 2, 0], 3],
+    ["Oros", [2, 0, 0], 2]
+  ]);
+});
+
 test("year filter counts medals only in that year", () => {
   assert.deepEqual(medallasAtleta(resultadosMedallas, "ATLETA Uno", { anio: "2024" }), [0, 1, 0]);
 });

@@ -5,6 +5,7 @@ on:
     paths:
       - "index.html"
       - "name-normalization.js"
+      - "medallistas-ranking.js"
       - "data/alias_atletas.json"
       - "data/*.csv"
       - "data/meta.json"
@@ -36,6 +37,7 @@ jobs:
           mkdir _site
           cp index.html _site/
           cp name-normalization.js _site/
+          cp medallistas-ranking.js _site/
           cp *.png *.jpg _site/ 2>/dev/null || true
           cp -r fotos _site/fotos 2>/dev/null || true
           cp -r data _site/data
