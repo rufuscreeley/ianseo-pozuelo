@@ -163,6 +163,7 @@
 </footer>
 
 <script src="name-normalization.js"></script>
+<script src="medallistas-ranking.js"></script>
 <script>
 "use strict";
 const COLS = {
@@ -349,16 +350,15 @@ function nombreBonito(nombre) {
 const slug = nombre => norm(nombre).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 function filasFichaAtleta(nombre) {
-  const f = state.f;
-  return DATA.individual.filter(r => r.atleta === nombre &&
-    (!f.anio || (r.fecha_inicio || "").slice(0, 4) === f.anio) &&
-    (!f.div || r.division === f.div) &&
-    (!f.gen || r.genero === f.gen));
+  return medallistasRanking.filtrarMedallas(DATA.individual.filter(r => r.atleta === nombre), state.f, {
+    ignorarGenero: true,
+    incluirBusqueda: false
+  });
 }
 
 function abrirFichaAtleta(nombre) {
   const rows = filasFichaAtleta(nombre);
-  const medallas = [0, 0, 0];
+  const medallas = medallistasRanking.contarMedallas(rows);
   const porCategoria = new Map();
   rows.forEach(r => {
     const posicion = parseInt(r.posicion_final, 10);
@@ -367,7 +367,6 @@ function abrirFichaAtleta(nombre) {
     const clave = JSON.stringify([r.division || "Sin división", categoria]);
     const datos = porCategoria.get(clave) || { division: r.division || "Sin división", categoria, medallas: [0, 0, 0] };
     datos.medallas[posicion - 1]++;
-    medallas[posicion - 1]++;
     porCategoria.set(clave, datos);
   });
 
@@ -379,9 +378,10 @@ function abrirFichaAtleta(nombre) {
   cerrar.textContent = "Cerrar"; cerrar.setAttribute("aria-label", "Cerrar ficha del deportista");
   cerrar.addEventListener("click", () => dialogo.close());
   cabecera.append(titulo, cerrar);
-  const f = state.f, filtros = [f.anio, f.div, f.gen].filter(Boolean);
+  const f = state.f, filtros = [f.anio, f.div, f.cat, f.ambito].filter(Boolean);
   const subtitulo = document.createElement("p"); subtitulo.className = "ambito";
-  subtitulo.textContent = `${rows.length} participaciones${filtros.length ? ` · ${filtros.join(" · ")}` : " · todos los años, divisiones y géneros"} · todas las categorías`;
+  const categoriaFicha = f.cat || medallistasRanking.categoriaReciente(DATA.individual, nombre);
+  subtitulo.textContent = `${rows.length} participaciones${filtros.length ? ` · ${filtros.join(" · ")}` : " · trayectoria completa"}${categoriaFicha ? ` · ${categoriaFicha}` : ""}`;
   const total = document.createElement("div"); total.className = "ficha-total";
   [["🥇", medallas[0], "Oros"], ["🥈", medallas[1], "Platas"], ["🥉", medallas[2], "Bronces"],
    ["", medallas.reduce((s, n) => s + n, 0), "Medallas"]].forEach(([emoji, cantidad, etiqueta]) => {
@@ -411,19 +411,9 @@ function abrirFichaAtleta(nombre) {
   dialogo.showModal();
 }
 
-/* los tres atletas con más medallas (oro, plata, bronce) entre las filas individuales que cumplen los filtros */
+/* los tres atletas con más medallas individuales dentro del ámbito elegido */
 function pintarPodio(ind) {
-  const por = new Map();
-  ind.forEach(r => {
-    const n = parseInt(r.posicion_final, 10);
-    if (!(n >= 1 && n <= 3) || !r.atleta) return;
-    const a = por.get(r.atleta) || { nombre: r.atleta, m: [0, 0, 0], ctx: new Map() };
-    a.m[n - 1]++;
-    const c = [r.division, r.categoria].filter(Boolean).join(" · ");
-    a.ctx.set(c, (a.ctx.get(c) || 0) + 1);
-    por.set(r.atleta, a);
-  });
-  const top = [...por.values()].sort((a, b) => b.m[0] - a.m[0] || b.m[1] - a.m[1] || b.m[2] - a.m[2] || texto(a.nombre, b.nombre)).slice(0, 3);
+  const top = medallistasRanking.rankingTop3(ind, state.f);
   const f = state.f, ambito = [f.anio, f.div, f.cat, f.gen].filter(Boolean).join(" · ") || "todas las competiciones desde 2021";
   const sec = $("podio"); sec.replaceChildren();
   const h2 = document.createElement("h2"); h2.textContent = "Medallistas destacados"; sec.appendChild(h2);
@@ -443,7 +433,7 @@ function pintarPodio(ind) {
     perfil.addEventListener("click", () => abrirFichaAtleta(a.nombre)); n.appendChild(perfil);
     const m = document.createElement("div"); m.textContent = `🥇 ${a.m[0]} · 🥈 ${a.m[1]} · 🥉 ${a.m[2]}`;
     const c = document.createElement("div"); c.className = "ctx";
-    c.textContent = [...a.ctx.entries()].sort((x, y) => y[1] - x[1])[0][0];
+    c.textContent = f.cat || medallistasRanking.categoriaReciente(DATA.individual, a.nombre);
     txt.append(n, m, c); card.append(foto, txt); grid.appendChild(card);
   });
   sec.appendChild(grid);
@@ -454,7 +444,12 @@ function pintarResumen() {
   const eq = filtrar(DATA.equipos, "equipos", state.tab !== "equipos");
   const todas = new Set([...ind, ...eq].map(r => r.toId));
   const medallas = rows => [1, 2, 3].map(p => rows.filter(r => parseInt(r.posicion_final, 10) === p).length);
-  const [o, p, b] = medallas(ind), [eo, ep, eb] = medallas(eq);
+  const medallasIndividuales = medallistasRanking.filtrarMedallas(DATA.individual, state.f, {
+    ignorarGenero: true,
+    incluirBusqueda: true,
+    normalizar: norm
+  });
+  const [o, p, b] = medallistasRanking.contarMedallas(medallasIndividuales), [eo, ep, eb] = medallas(eq);
   const tarjetas = [
     [todas.size, "competiciones con participación"],
     [ind.length, "participaciones individuales"],
@@ -467,7 +462,7 @@ function pintarResumen() {
     const b2 = document.createElement("div"); b2.className = "l"; b2.textContent = l;
     d.append(a, b2); return d;
   }));
-  pintarPodio(ind);
+  pintarPodio(DATA.individual);
 }
 
 function cambiarPestana(tab) {
