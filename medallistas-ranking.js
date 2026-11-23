@@ -45,7 +45,9 @@
       porAtleta.set(row.atleta, datos);
     });
     return [...porAtleta.values()]
-      .sort((a, b) => b.m[0] - a.m[0] || b.m[1] - a.m[1] || b.m[2] - a.m[2] ||
+      .sort((a, b) =>
+        b.m.reduce((s, count) => s + count, 0) - a.m.reduce((s, count) => s + count, 0) ||
+        b.m[0] - a.m[0] || b.m[1] - a.m[1] || b.m[2] - a.m[2] ||
         String(a.nombre).localeCompare(String(b.nombre), "es"))
       .slice(0, 3);
   }
